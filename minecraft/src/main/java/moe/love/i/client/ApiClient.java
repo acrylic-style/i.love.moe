@@ -31,7 +31,7 @@ final class ApiClient {
         this.baseUri = UriUtil.toHttpUri(config.baseUrl());
     }
 
-    CompletableFuture<UploadResult> upload(Path image) {
+    CompletableFuture<UploadResult> upload(Path image, ServerMetadata serverMetadata) {
         try {
             long size = Files.size(image);
             if (size == 0 || size > MAX_IMAGE_BYTES) {
@@ -41,7 +41,7 @@ final class ApiClient {
             return CompletableFuture.failedFuture(exception);
         }
 
-        return deviceToken().thenCompose(token -> sendUpload(image, token, true));
+        return deviceToken().thenCompose(token -> sendUpload(image, serverMetadata, token, true));
     }
 
     CompletableFuture<Void> delete(String imageId) {
@@ -71,11 +71,11 @@ final class ApiClient {
         });
     }
 
-    private CompletableFuture<UploadResult> sendUpload(Path image, String token, boolean retryAuthentication) {
+    private CompletableFuture<UploadResult> sendUpload(Path image, ServerMetadata serverMetadata, String token, boolean retryAuthentication) {
         HttpRequest request;
         try {
-            request = authenticatedRequest("/api/v1/images", token)
-                    .header("content-type", "image/png")
+            request = serverMetadata.addHeaders(authenticatedRequest("/api/v1/images", token)
+                    .header("content-type", "image/png"))
                     .POST(HttpRequest.BodyPublishers.ofFile(image))
                     .build();
         } catch (IOException exception) {
@@ -87,7 +87,7 @@ final class ApiClient {
                 synchronized (this) {
                     registration = null;
                 }
-                return deviceToken().thenCompose(newToken -> sendUpload(image, newToken, false));
+                return deviceToken().thenCompose(newToken -> sendUpload(image, serverMetadata, newToken, false));
             }
             requireStatus(response, 201);
             UploadResult result = GSON.fromJson(response.body(), UploadResult.class);
@@ -163,6 +163,7 @@ final class ApiClient {
             return switch (api.code) {
                 case "image_too_large" -> "画像が10MBを超えています";
                 case "invalid_png", "invalid_image_type" -> "PNG画像として認識できません";
+                case "invalid_server_metadata" -> "サーバー情報を送信できませんでした";
                 case "upload_limit_reached" -> "直近30日のアップロード上限に達しています";
                 case "invalid_email" -> "メールアドレスをご確認ください";
                 case "too_many_requests" -> "しばらく待ってからお試しください";

@@ -26,6 +26,8 @@ export interface DeviceRow {
 export interface ImageRow {
   id: string;
   title: string | null;
+  server_address: string | null;
+  server_name: string | null;
   r2_key: string;
   byte_size: number;
   width: number;

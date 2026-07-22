@@ -76,6 +76,9 @@ export async function uploadImage(request: Request, env: CloudflareEnv): Promise
   if (body.byteLength === 0 || body.byteLength > MAX_IMAGE_BYTES) return apiError("image_too_large", 413);
   const png = inspectPng(body);
   if (!png) return apiError("invalid_png", 400);
+  const serverAddress = decodeMetadataHeader(request.headers.get("x-minecraft-server-address"), 255);
+  const serverName = decodeMetadataHeader(request.headers.get("x-minecraft-server-name"), 100);
+  if (serverAddress === undefined || serverName === undefined) return apiError("invalid_server_metadata", 400);
 
   const now = Date.now();
   const quotaStart = now - THIRTY_DAYS_MS;
@@ -98,9 +101,11 @@ export async function uploadImage(request: Request, env: CloudflareEnv): Promise
   try {
     await env.DB.batch([
       env.DB.prepare(`INSERT INTO images
-        (id, owner_device_id, owner_user_id, r2_key, byte_size, width, height, created_at, expires_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .bind(id, device.id, device.user_id, r2Key, body.byteLength, png.width, png.height, now, expiresAt),
+        (id, owner_device_id, owner_user_id, r2_key, byte_size, width, height, created_at, expires_at,
+          server_address, server_name)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .bind(id, device.id, device.user_id, r2Key, body.byteLength, png.width, png.height, now, expiresAt,
+          serverAddress, serverName),
       env.DB.prepare("INSERT INTO short_links (code, target_type, target_id, created_at) VALUES (?, 'image', ?, ?)")
         .bind(code, id, now),
     ]);
@@ -218,7 +223,7 @@ export async function serveRawImage(code: string, env: CloudflareEnv): Promise<R
 export async function deleteManagedImage(request: Request, env: CloudflareEnv, id: string): Promise<Response> {
   const session = await authenticateSession(request, env);
   if (!session) return new Response(null, { status: 404 });
-  const image = await env.DB.prepare(`SELECT i.id, i.title, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
+  const image = await env.DB.prepare(`SELECT i.id, i.title, i.server_address, i.server_name, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
       i.expires_at, i.deleted_at, i.owner_device_id, i.owner_user_id, s.code
     FROM images i JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id
     WHERE i.id = ? AND i.owner_user_id = ?`)
@@ -256,7 +261,7 @@ export async function authenticateSessionToken(token: string | undefined, env: C
 }
 
 export async function managedImages(env: CloudflareEnv, userId: string): Promise<ImageRow[]> {
-  const rows = await env.DB.prepare(`SELECT i.id, i.title, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
+  const rows = await env.DB.prepare(`SELECT i.id, i.title, i.server_address, i.server_name, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
       i.expires_at, i.deleted_at, s.code
     FROM images i JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id
     WHERE i.owner_user_id = ? AND i.deleted_at IS NULL AND i.expires_at > ?
@@ -266,7 +271,7 @@ export async function managedImages(env: CloudflareEnv, userId: string): Promise
 }
 
 export async function findActiveImageByCode(env: CloudflareEnv, code: string): Promise<ImageLookupRow | null> {
-  return env.DB.prepare(`SELECT i.id, i.title, i.owner_device_id, i.owner_user_id, i.r2_key, i.byte_size, i.width,
+  return env.DB.prepare(`SELECT i.id, i.title, i.server_address, i.server_name, i.owner_device_id, i.owner_user_id, i.r2_key, i.byte_size, i.width,
       i.height, i.created_at, i.expires_at, i.deleted_at, s.code
     FROM short_links s JOIN images i ON i.id = s.target_id
     WHERE s.code = ? AND s.target_type = 'image' AND s.retired_at IS NULL
@@ -299,7 +304,7 @@ export async function allocateShortCode(env: CloudflareEnv): Promise<string> {
 
 async function ownedImages(env: CloudflareEnv, deviceId: string, userId: string | null): Promise<ImageRow[]> {
   const ownerClause = userId ? "i.owner_user_id = ?" : "i.owner_device_id = ?";
-  const rows = await env.DB.prepare(`SELECT i.id, i.title, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
+  const rows = await env.DB.prepare(`SELECT i.id, i.title, i.server_address, i.server_name, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
       i.expires_at, i.deleted_at, s.code
     FROM images i JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id
     WHERE ${ownerClause} AND i.deleted_at IS NULL AND i.expires_at > ?
@@ -310,7 +315,7 @@ async function ownedImages(env: CloudflareEnv, deviceId: string, userId: string 
 
 async function findOwnedImage(env: CloudflareEnv, id: string, deviceId: string, userId: string | null): Promise<ImageLookupRow | null> {
   const ownerClause = userId ? "i.owner_user_id = ?" : "i.owner_device_id = ?";
-  return env.DB.prepare(`SELECT i.id, i.title, i.owner_device_id, i.owner_user_id, i.r2_key, i.byte_size, i.width,
+  return env.DB.prepare(`SELECT i.id, i.title, i.server_address, i.server_name, i.owner_device_id, i.owner_user_id, i.r2_key, i.byte_size, i.width,
       i.height, i.created_at, i.expires_at, i.deleted_at, s.code
     FROM images i JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id
     WHERE i.id = ? AND ${ownerClause}`)
@@ -330,6 +335,8 @@ function publicImage(image: ImageRow, env: CloudflareEnv): Record<string, unknow
   return {
     id: image.id,
     title: image.title,
+    serverAddress: image.server_address,
+    serverName: image.server_name,
     url: `${publicBaseUrl(env)}/${image.code}`,
     width: image.width,
     height: image.height,
@@ -344,6 +351,22 @@ export function normalizeOptionalText(value: FormDataEntryValue | null, maxLengt
   const normalized = value.trim();
   if (normalized.length === 0) return null;
   return Array.from(normalized).length <= maxLength ? normalized : undefined;
+}
+
+export function decodeMetadataHeader(encoded: string | null, maxLength: number): string | null | undefined {
+  if (encoded === null) return null;
+  if (encoded.length === 0 || encoded.length > 2048 || !/^[0-9A-Za-z_-]+$/.test(encoded)) return undefined;
+  try {
+    const base64 = encoded.replaceAll("-", "+").replaceAll("_", "/").padEnd(Math.ceil(encoded.length / 4) * 4, "=");
+    const binary = atob(base64);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    const value = new TextDecoder("utf-8", { fatal: true }).decode(bytes).trim();
+    if (value.length === 0) return null;
+    if (Array.from(value).length > maxLength || /[\u0000-\u001f\u007f]/.test(value)) return undefined;
+    return value;
+  } catch {
+    return undefined;
+  }
 }
 
 function redirectWithError(path: string, error: string): Response {

@@ -4,6 +4,7 @@ import { cache } from "react";
 import { findActiveAlbumByCode } from "@/albums";
 import { getEnv } from "@/cloudflare";
 import { LocalDateTime } from "@/components/local-date-time";
+import { ServerMetadata } from "@/components/server-metadata";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { findActiveImageByCode, SHORT_CODE_PATTERN } from "@/service";
 
@@ -43,7 +44,7 @@ export default async function ViewerPage({ params }: { params: Promise<{ code: s
         <figure className="mb-4 break-inside-avoid overflow-hidden rounded-xl border bg-card" key={albumImage.id}><a className="block overflow-hidden" href={`/${albumImage.code}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className="h-auto w-full transition-transform hover:scale-[1.01]" src={`/raw/${albumImage.code}`} alt={albumImage.title ?? "Minecraft screenshot"} />
-        </a>{albumImage.title && <figcaption className="px-4 py-3 text-sm">{albumImage.title}</figcaption>}</figure>
+        </a>{(albumImage.title || albumImage.server_name || albumImage.server_address) && <figcaption className="space-y-2 px-4 py-3 text-sm">{albumImage.title && <p>{albumImage.title}</p>}<ServerMetadata name={albumImage.server_name} address={albumImage.server_address} compact /></figcaption>}</figure>
       ))}</div>}
       </CardContent></Card></main>;
   }
@@ -60,6 +61,7 @@ export default async function ViewerPage({ params }: { params: Promise<{ code: s
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img className="mx-auto max-h-[75vh] max-w-full rounded-lg bg-black/30 object-contain" src={`/raw/${code}`} width={image.width} height={image.height} alt={image.title ?? "Minecraft screenshot"} />
       <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground"><span>{image.width} × {image.height}</span><span>{size}</span><span><LocalDateTime value={expires} />まで</span></div>
+      <div className="mt-4"><ServerMetadata name={image.server_name} address={image.server_address} /></div>
       </CardContent></Card></main>
   );
 }

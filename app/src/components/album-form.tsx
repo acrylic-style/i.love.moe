@@ -4,6 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ServerMetadata } from "@/components/server-metadata";
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_album: "題名・説明・画像数をご確認ください。",
@@ -39,6 +40,7 @@ export function AlbumForm({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className="h-28 w-full rounded-md object-cover" src={`/raw/${image.code}`} alt="" />
             <span className="truncate px-1">{image.title ?? image.code}</span>
+            <ServerMetadata name={image.server_name} address={image.server_address} compact />
           </Label>
         ))}</div>}
       </fieldset>

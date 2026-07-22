@@ -30,7 +30,7 @@ R2では `free/` プレフィックスに対して30日後削除のObject Lifecy
 ## API
 
 - `POST /api/v1/devices`: 匿名デバイスを登録
-- `POST /api/v1/images`: Bearerトークン付きでPNGをアップロード
+- `POST /api/v1/images`: Bearerトークン付きでPNGをアップロード。Modは任意で撮影サーバー名・アドレスをBase64URLヘッダーへ添付
 - `GET /api/v1/images`: 所有画像の一覧
 - `DELETE /api/v1/images/{id}`: 所有画像を削除
 - `POST /api/v1/auth/magic-links`: マジックリンクを送信
@@ -38,6 +38,6 @@ R2では `free/` プレフィックスに対して30日後削除のObject Lifecy
 - `GET /{code}`: 画像またはアルバムの閲覧ページ
 - `GET /raw/{code}`: PNG本体
 
-ログイン後の `/manage` では、画像タイトルの編集とアルバムの作成・編集・並べ替え・削除ができます。アルバムはURL限定公開で、1会員20冊、1冊50枚までです。
+ログイン後の `/manage` では、画像タイトルと撮影サーバー情報の確認、アルバムの作成・編集・並べ替え・削除ができます。アルバムはURL限定公開で、1会員20冊、1冊50枚までです。撮影サーバー情報は画像・アルバムの共有ページにも表示されます。
 
 デバイス登録はCloudflareの `CF-Connecting-IP` をHMAC-SHA-256で匿名化し、同一IPについてローリング24時間で3回まで許可します。4回目以降は `429` と `Retry-After` を返します。

@@ -4,6 +4,7 @@ import { getEnv } from "@/cloudflare";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageTitleForm } from "@/components/image-title-form";
+import { ServerMetadata } from "@/components/server-metadata";
 import { authenticateSessionToken, managedImages } from "@/service";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +47,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
               {/* eslint-disable-next-line @next/next/no-img-element */}<img className="h-44 w-full object-cover transition-transform hover:scale-[1.02]" src={`/raw/${image.code}`} alt={image.title ?? ""} />
             </a>
             <CardContent className="space-y-4">
+              <ServerMetadata name={image.server_name} address={image.server_address} compact />
               <ImageTitleForm imageId={image.id} initialTitle={image.title} />
               <div className="flex items-center justify-between gap-3"><a className="text-sm text-primary hover:underline" href={`/${image.code}`}>{image.code}</a><form method="post" action={`/manage/images/${image.id}/delete`}><Button variant="destructive" size="sm" type="submit">削除</Button></form></div>
             </CardContent>

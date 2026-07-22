@@ -20,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class ILoveMoeClient implements ClientModInitializer {
     public static final Logger LOGGER = LoggerFactory.getLogger("i-love-moe");
-    private static final Map<String, Path> PENDING_UPLOADS = new ConcurrentHashMap<>();
+    private static final Map<String, PendingUpload> PENDING_UPLOADS = new ConcurrentHashMap<>();
     private static ModConfig config;
     private static ApiClient api;
 
@@ -50,7 +50,8 @@ public final class ILoveMoeClient implements ClientModInitializer {
 
     static void offerUpload(Path screenshot) {
         String id = UUID.randomUUID().toString();
-        PENDING_UPLOADS.put(id, screenshot);
+        MinecraftClient client = MinecraftClient.getInstance();
+        PENDING_UPLOADS.put(id, new PendingUpload(screenshot, ServerMetadata.from(client.getCurrentServerEntry())));
         MutableText action = Text.literal("[アップロード]")
                 .styled(style -> style.withColor(Formatting.AQUA)
                         .withUnderline(true)
@@ -59,13 +60,13 @@ public final class ILoveMoeClient implements ClientModInitializer {
     }
 
     private static int upload(String pendingId) {
-        Path screenshot = PENDING_UPLOADS.remove(pendingId);
-        if (screenshot == null || !Files.isRegularFile(screenshot)) {
+        PendingUpload pending = PENDING_UPLOADS.remove(pendingId);
+        if (pending == null || !Files.isRegularFile(pending.screenshot())) {
             sendError("スクリーンショットが見つかりません");
             return 0;
         }
         sendMessage(Text.literal("アップロードしています…").formatted(Formatting.GRAY));
-        api.upload(screenshot).whenComplete((result, error) -> MinecraftClient.getInstance().execute(() -> {
+        api.upload(pending.screenshot(), pending.serverMetadata()).whenComplete((result, error) -> MinecraftClient.getInstance().execute(() -> {
             if (error != null) {
                 sendError(ApiClient.humanReadableError(error));
                 return;
@@ -119,5 +120,8 @@ public final class ILoveMoeClient implements ClientModInitializer {
     private static void sendMessage(Text message) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.inGameHud != null) client.inGameHud.getChatHud().addMessage(message);
+    }
+
+    private record PendingUpload(Path screenshot, ServerMetadata serverMetadata) {
     }
 }
