@@ -218,7 +218,7 @@ export async function serveRawImage(code: string, env: CloudflareEnv): Promise<R
 export async function deleteManagedImage(request: Request, env: CloudflareEnv, id: string): Promise<Response> {
   const session = await authenticateSession(request, env);
   if (!session) return new Response(null, { status: 404 });
-  const image = await env.DB.prepare(`SELECT i.id, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
+  const image = await env.DB.prepare(`SELECT i.id, i.title, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
       i.expires_at, i.deleted_at, i.owner_device_id, i.owner_user_id, s.code
     FROM images i JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id
     WHERE i.id = ? AND i.owner_user_id = ?`)
@@ -226,6 +226,19 @@ export async function deleteManagedImage(request: Request, env: CloudflareEnv, i
   if (!image || image.deleted_at !== null) return new Response(null, { status: 404 });
   await retireImage(env, image.id, image.code);
   await env.IMAGES.delete(image.r2_key);
+  return new Response(null, { status: 303, headers: { location: "/manage" } });
+}
+
+export async function updateManagedImageTitle(request: Request, env: CloudflareEnv, id: string): Promise<Response> {
+  const session = await authenticateSession(request, env);
+  if (!session) return new Response(null, { status: 404 });
+  const form = await request.formData();
+  const title = normalizeOptionalText(form.get("title"), 100);
+  if (title === undefined) return redirectWithError("/manage", "invalid_image_title");
+  const result = await env.DB.prepare(`UPDATE images SET title = ?
+    WHERE id = ? AND owner_user_id = ? AND deleted_at IS NULL AND expires_at > ?`)
+    .bind(title, id, session.user_id, Date.now()).run();
+  if ((result.meta.changes ?? 0) !== 1) return new Response(null, { status: 404 });
   return new Response(null, { status: 303, headers: { location: "/manage" } });
 }
 
@@ -242,7 +255,7 @@ export async function authenticateSessionToken(token: string | undefined, env: C
 }
 
 export async function managedImages(env: CloudflareEnv, userId: string): Promise<ImageRow[]> {
-  const rows = await env.DB.prepare(`SELECT i.id, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
+  const rows = await env.DB.prepare(`SELECT i.id, i.title, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
       i.expires_at, i.deleted_at, s.code
     FROM images i JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id
     WHERE i.owner_user_id = ? AND i.deleted_at IS NULL AND i.expires_at > ?
@@ -252,7 +265,7 @@ export async function managedImages(env: CloudflareEnv, userId: string): Promise
 }
 
 export async function findActiveImageByCode(env: CloudflareEnv, code: string): Promise<ImageLookupRow | null> {
-  return env.DB.prepare(`SELECT i.id, i.owner_device_id, i.owner_user_id, i.r2_key, i.byte_size, i.width,
+  return env.DB.prepare(`SELECT i.id, i.title, i.owner_device_id, i.owner_user_id, i.r2_key, i.byte_size, i.width,
       i.height, i.created_at, i.expires_at, i.deleted_at, s.code
     FROM short_links s JOIN images i ON i.id = s.target_id
     WHERE s.code = ? AND s.target_type = 'image' AND s.retired_at IS NULL
@@ -271,11 +284,11 @@ async function authenticateDevice(request: Request, env: CloudflareEnv): Promise
   return device;
 }
 
-async function authenticateSession(request: Request, env: CloudflareEnv): Promise<SessionRow | null> {
+export async function authenticateSession(request: Request, env: CloudflareEnv): Promise<SessionRow | null> {
   return authenticateSessionToken(cookieValue(request, "session") ?? undefined, env);
 }
 
-async function allocateShortCode(env: CloudflareEnv): Promise<string> {
+export async function allocateShortCode(env: CloudflareEnv): Promise<string> {
   for (let attempt = 0; attempt < 10; attempt++) {
     const code = randomBase62(8);
     if (!await env.DB.prepare("SELECT 1 AS found FROM short_links WHERE code = ?").bind(code).first()) return code;
@@ -285,7 +298,7 @@ async function allocateShortCode(env: CloudflareEnv): Promise<string> {
 
 async function ownedImages(env: CloudflareEnv, deviceId: string, userId: string | null): Promise<ImageRow[]> {
   const ownerClause = userId ? "i.owner_user_id = ?" : "i.owner_device_id = ?";
-  const rows = await env.DB.prepare(`SELECT i.id, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
+  const rows = await env.DB.prepare(`SELECT i.id, i.title, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
       i.expires_at, i.deleted_at, s.code
     FROM images i JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id
     WHERE ${ownerClause} AND i.deleted_at IS NULL AND i.expires_at > ?
@@ -296,7 +309,7 @@ async function ownedImages(env: CloudflareEnv, deviceId: string, userId: string 
 
 async function findOwnedImage(env: CloudflareEnv, id: string, deviceId: string, userId: string | null): Promise<ImageLookupRow | null> {
   const ownerClause = userId ? "i.owner_user_id = ?" : "i.owner_device_id = ?";
-  return env.DB.prepare(`SELECT i.id, i.owner_device_id, i.owner_user_id, i.r2_key, i.byte_size, i.width,
+  return env.DB.prepare(`SELECT i.id, i.title, i.owner_device_id, i.owner_user_id, i.r2_key, i.byte_size, i.width,
       i.height, i.created_at, i.expires_at, i.deleted_at, s.code
     FROM images i JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id
     WHERE i.id = ? AND ${ownerClause}`)
@@ -308,12 +321,14 @@ async function retireImage(env: CloudflareEnv, id: string, code: string): Promis
   await env.DB.batch([
     env.DB.prepare("UPDATE images SET deleted_at = COALESCE(deleted_at, ?) WHERE id = ?").bind(now, id),
     env.DB.prepare("UPDATE short_links SET retired_at = COALESCE(retired_at, ?) WHERE code = ?").bind(now, code),
+    env.DB.prepare("DELETE FROM album_images WHERE image_id = ?").bind(id),
   ]);
 }
 
 function publicImage(image: ImageRow, env: CloudflareEnv): Record<string, unknown> {
   return {
     id: image.id,
+    title: image.title,
     url: `${publicBaseUrl(env)}/${image.code}`,
     width: image.width,
     height: image.height,
@@ -321,6 +336,17 @@ function publicImage(image: ImageRow, env: CloudflareEnv): Record<string, unknow
     createdAt: new Date(image.created_at).toISOString(),
     expiresAt: new Date(image.expires_at).toISOString(),
   };
+}
+
+export function normalizeOptionalText(value: FormDataEntryValue | null, maxLength: number): string | null | undefined {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  if (normalized.length === 0) return null;
+  return Array.from(normalized).length <= maxLength ? normalized : undefined;
+}
+
+function redirectWithError(path: string, error: string): Response {
+  return new Response(null, { status: 303, headers: { location: `${path}?error=${encodeURIComponent(error)}` } });
 }
 
 function publicBaseUrl(env: CloudflareEnv): string {

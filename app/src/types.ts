@@ -25,6 +25,7 @@ export interface DeviceRow {
 
 export interface ImageRow {
   id: string;
+  title: string | null;
   r2_key: string;
   byte_size: number;
   width: number;
@@ -33,6 +34,23 @@ export interface ImageRow {
   expires_at: number;
   deleted_at: number | null;
   code: string;
+}
+
+export interface AlbumRow {
+  id: string;
+  owner_user_id: string;
+  title: string;
+  description: string | null;
+  created_at: number;
+  updated_at: number;
+  deleted_at: number | null;
+  code: string;
+  cover_code?: string | null;
+  image_count?: number;
+}
+
+export interface AlbumImageRow extends ImageRow {
+  position: number;
 }
 
 export interface ImageLookupRow extends ImageRow {

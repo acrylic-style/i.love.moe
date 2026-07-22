@@ -35,7 +35,9 @@ R2では `free/` プレフィックスに対して30日後削除のObject Lifecy
 - `DELETE /api/v1/images/{id}`: 所有画像を削除
 - `POST /api/v1/auth/magic-links`: マジックリンクを送信
 - `GET /auth/verify?token=...`: マジックリンクを検証
-- `GET /{code}`: 画像閲覧ページ
+- `GET /{code}`: 画像またはアルバムの閲覧ページ
 - `GET /raw/{code}`: PNG本体
+
+ログイン後の `/manage` では、画像タイトルの編集とアルバムの作成・編集・並べ替え・削除ができます。アルバムはURL限定公開で、1会員20冊、1冊50枚までです。
 
 デバイス登録はCloudflareの `CF-Connecting-IP` をHMAC-SHA-256で匿名化し、同一IPについてローリング24時間で3回まで許可します。4回目以降は `429` と `Retry-After` を返します。
