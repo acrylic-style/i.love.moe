@@ -23,7 +23,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
       {error === "invalid_image_title" && <p className="error">画像タイトルは100文字以内にしてください。</p>}
       <section className="manage-section">
         <div className="section-header"><div><h2>アルバム</h2><p className="muted">画像をまとめて、ひとつのURLで共有できます。</p></div><a className="button-link" href="/manage/albums/new">アルバムを作成</a></div>
-        {albums.length === 0 ? <p className="empty">アルバムはまだございません。</p> : (
+        {albums.length === 0 ? <p className="empty">アルバムはまだありません。</p> : (
           <div className="grid">{albums.map((album) => (
             <article className="item" key={album.id}>
               {album.cover_code ? <a href={`/manage/albums/${album.id}`}>
@@ -37,7 +37,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
       </section>
       <section className="manage-section">
       <div className="section-header"><div><h2>画像</h2><p className="muted">タイトルは共有ページとアルバムに表示されます。</p></div></div>
-      {images.length === 0 ? <p className="empty">管理できる画像はございません。</p> : (
+      {images.length === 0 ? <p className="empty">管理できる画像はありません。</p> : (
         <div className="grid">{images.map((image) => (
           <article className="item" key={image.id}>
             <a href={`/${image.code}`}>

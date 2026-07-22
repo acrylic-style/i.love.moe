@@ -37,7 +37,7 @@ export default async function ViewerPage({ params }: { params: Promise<{ code: s
     const { album, images } = target.detail;
     return <main className="card album-viewer"><p className="eyebrow">Album</p><h1>{album.title}</h1>
       {album.description && <p className="album-description">{album.description}</p>}
-      {images.length === 0 ? <p className="empty">このアルバムには現在閲覧できる画像がございません。</p> : <div className="album-grid">{images.map((albumImage) => (
+      {images.length === 0 ? <p className="empty">このアルバムには、今見られる画像がありません。</p> : <div className="album-grid">{images.map((albumImage) => (
         <figure key={albumImage.id}><a href={`/${albumImage.code}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={`/raw/${albumImage.code}`} alt={albumImage.title ?? "Minecraft screenshot"} />

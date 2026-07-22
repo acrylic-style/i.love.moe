@@ -30,7 +30,7 @@ export function AlbumForm({
       <label htmlFor="album-description">説明（任意）</label>
       <textarea id="album-description" name="description" maxLength={1000} rows={4} defaultValue={album?.description ?? ""} />
       <fieldset><legend>収録画像（最大50枚）</legend>
-        {images.length === 0 ? <p className="empty">追加できる画像がございません。</p> : <div className="image-picker">{images.map((image) => (
+        {images.length === 0 ? <p className="empty">追加できる画像はありません。</p> : <div className="image-picker">{images.map((image) => (
           <label className="image-choice" key={image.id}>
             <input type="checkbox" name="imageIds" value={image.id} defaultChecked={selected.has(image.id)} />
             {/* eslint-disable-next-line @next/next/no-img-element */}
