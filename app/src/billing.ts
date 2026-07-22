@@ -22,17 +22,34 @@ export async function createCheckout(request: Request, env: CloudflareEnv): Prom
   const stripe = stripeClient(env);
   const customerId = await ensureCustomer(stripe, env, session.user_id);
   const baseUrl = env.PUBLIC_BASE_URL.replace(/\/$/, "");
-  const checkout = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    customer: customerId,
-    client_reference_id: session.user_id,
-    line_items: [{ price: env.STRIPE_PLUS_PRICE_ID, quantity: 1 }],
-    success_url: `${baseUrl}/manage?checkout=success`,
-    cancel_url: `${baseUrl}/plus?checkout=canceled`,
-    subscription_data: { metadata: { user_id: session.user_id } },
-  }, { idempotencyKey: `plus-checkout-${session.user_id}-${Math.floor(Date.now() / 3_600_000)}` });
+  const checkout = await stripe.checkout.sessions.create(plusCheckoutSessionParams({
+    customerId,
+    userId: session.user_id,
+    priceId: env.STRIPE_PLUS_PRICE_ID,
+    baseUrl,
+  }), { idempotencyKey: `plus-checkout-${session.user_id}-${Math.floor(Date.now() / 3_600_000)}` });
   if (!checkout.url) throw new Error("stripe_checkout_url_missing");
   return new Response(null, { status: 303, headers: { location: checkout.url, "cache-control": "no-store" } });
+}
+
+export function plusCheckoutSessionParams({ customerId, userId, priceId, baseUrl }: {
+  customerId: string;
+  userId: string;
+  priceId: string;
+  baseUrl: string;
+}): Stripe.Checkout.SessionCreateParams {
+  return {
+    mode: "subscription",
+    customer: customerId,
+    client_reference_id: userId,
+    line_items: [{ price: priceId, quantity: 1 }],
+    success_url: `${baseUrl}/manage?checkout=success`,
+    cancel_url: `${baseUrl}/plus?checkout=canceled`,
+    subscription_data: { metadata: { user_id: userId } },
+    payment_method_options: {
+      card: { request_three_d_secure: "any" },
+    },
+  };
 }
 
 export async function createPortal(request: Request, env: CloudflareEnv): Promise<Response> {
