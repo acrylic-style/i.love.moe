@@ -20,6 +20,7 @@ export interface Env {
   STRIPE_SECRET_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;
   STRIPE_PLUS_PRICE_ID: string;
+  LEGAL_NOTICE_URL?: string;
 }
 
 export interface RetentionMessage {
