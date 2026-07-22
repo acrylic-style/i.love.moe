@@ -7,6 +7,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getEnv } from "@/cloudflare";
 import { authenticateSessionToken, managedImages } from "@/service";
+import { planLimits } from "@/plans";
 
 export const dynamic = "force-dynamic";
 
@@ -18,9 +19,10 @@ export default async function EditAlbumPage({ params, searchParams }: {
   const env = getEnv();
   const session = await authenticateSessionToken((await cookies()).get("session")?.value, env);
   if (!session) notFound();
-  const [detail, images] = await Promise.all([
+  const [detail, images, limits] = await Promise.all([
     managedAlbumDetail(env, session.user_id, id),
     managedImages(env, session.user_id),
+    planLimits(env, session.user_id),
   ]);
   if (!detail) notFound();
   const { error } = await searchParams;
@@ -28,7 +30,7 @@ export default async function EditAlbumPage({ params, searchParams }: {
     <Card><CardHeader className="gap-4 sm:grid-cols-[1fr_auto]"><div><p className="text-sm font-bold tracking-[0.16em] text-primary">Album</p><CardTitle className="mt-1 text-3xl">{detail.album.title}</CardTitle><a className="mt-2 inline-block text-sm text-primary hover:underline" href={`/${detail.album.code}`}>共有ページを開く</a></div>
       <form className="sm:col-start-2 sm:row-start-1" method="post" action={`/manage/albums/${id}/delete`}><Button variant="destructive" type="submit">アルバムを削除</Button></form>
     </CardHeader><CardContent className="space-y-10">
-      <AlbumForm action={`/manage/albums/${id}/update`} images={images} album={detail.album} selectedImages={detail.images} error={error} submitLabel="内容を保存" />
+      <AlbumForm action={`/manage/albums/${id}/update`} images={images} album={detail.album} selectedImages={detail.images} error={error} submitLabel="内容を保存" allowProtected={limits.protectedSharing} maxImages={limits.imagesPerAlbum} />
       <AlbumOrderEditor albumId={id} initialImages={detail.images.map(({ id: imageId, title, code }) => ({ id: imageId, title, code }))} />
     </CardContent></Card>
   </main>;

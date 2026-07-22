@@ -9,10 +9,11 @@ import type { Visibility } from "@/types";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
-export function ImageVisibilityForm({ imageId, initialVisibility, hasPassphrase }: {
+export function ImageVisibilityForm({ imageId, initialVisibility, hasPassphrase, allowProtected = true }: {
   imageId: string;
   initialVisibility: Visibility;
   hasPassphrase: boolean;
+  allowProtected?: boolean;
 }) {
   const router = useRouter();
   const [state, setState] = useState<SaveState>("idle");
@@ -26,7 +27,9 @@ export function ImageVisibilityForm({ imageId, initialVisibility, hasPassphrase 
       const response = await fetch(`/manage/images/${imageId}/visibility`, { method: "POST", body: new FormData(event.currentTarget) });
       if (!response.ok) {
         const body = await response.json().catch(() => null) as { error?: string } | null;
-        setError(body?.error === "invalid_passphrase" ? "合言葉は4文字以上100文字以内にしてください。" : "公開範囲を保存できませんでした。");
+        setError(body?.error === "invalid_passphrase" ? "合言葉は4文字以上100文字以内にしてください。"
+          : body?.error === "plus_required" ? "非公開と合言葉付き公開はPlusで使えます。"
+            : "公開範囲を保存できませんでした。");
         setState("error");
         return;
       }
@@ -41,7 +44,7 @@ export function ImageVisibilityForm({ imageId, initialVisibility, hasPassphrase 
 
   const saving = state === "saving";
   return <form className="space-y-3" onSubmit={submit}>
-    <VisibilityFields initialVisibility={initialVisibility} hasPassphrase={hasPassphrase} idPrefix={`image-${imageId}`} />
+    <VisibilityFields initialVisibility={initialVisibility} hasPassphrase={hasPassphrase} idPrefix={`image-${imageId}`} allowProtected={allowProtected} />
     <Button className="w-40" type="submit" disabled={saving}>
       {saving && <LoaderCircleIcon className="size-4 animate-spin" aria-hidden="true" />}
       {state === "saved" && <CheckIcon className="size-4" aria-hidden="true" />}

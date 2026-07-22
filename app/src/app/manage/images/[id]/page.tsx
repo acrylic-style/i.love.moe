@@ -8,6 +8,7 @@ import { ServerMetadata } from "@/components/server-metadata";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { authenticateSessionToken, managedImageDetail } from "@/service";
+import { planLimits } from "@/plans";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export default async function EditImagePage({ params }: { params: Promise<{ id: 
   const env = getEnv();
   const session = await authenticateSessionToken((await cookies()).get("session")?.value, env);
   if (!session) notFound();
-  const image = await managedImageDetail(env, session.user_id, id);
+  const [image, limits] = await Promise.all([managedImageDetail(env, session.user_id, id), planLimits(env, session.user_id)]);
   if (!image) notFound();
 
   const expires = new Date(image.expires_at).toISOString();
@@ -42,7 +43,7 @@ export default async function EditImagePage({ params }: { params: Promise<{ id: 
         <ServerMetadata name={image.server_name} address={image.server_address} />
         <div className="space-y-8 border-t pt-8">
           <ImageTitleForm imageId={image.id} initialTitle={image.title} />
-          <ImageVisibilityForm imageId={image.id} initialVisibility={image.visibility} hasPassphrase={Boolean(image.has_passphrase)} />
+          <ImageVisibilityForm imageId={image.id} initialVisibility={image.visibility} hasPassphrase={Boolean(image.has_passphrase)} allowProtected={limits.protectedSharing} />
         </div>
       </CardContent>
     </Card>

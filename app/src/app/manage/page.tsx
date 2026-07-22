@@ -5,18 +5,31 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ServerMetadata } from "@/components/server-metadata";
 import { authenticateSessionToken, managedImages } from "@/service";
+import { planLimits, subscriptionPriceLabel, subscriptionSummary, uploadUsage } from "@/plans";
+import { LocalDateTime } from "@/components/local-date-time";
 
 export const dynamic = "force-dynamic";
 
-export default async function ManagePage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function ManagePage({ searchParams }: { searchParams: Promise<{ error?: string; checkout?: string }> }) {
   const token = (await cookies()).get("session")?.value;
   const env = getEnv();
   const session = await authenticateSessionToken(token, env);
   if (!session) {
     return <main className="mx-auto mt-[8vh] max-w-3xl"><Card><CardHeader><CardTitle>ログインが必要です</CardTitle><CardDescription>Modからログインリンクを送信してください。</CardDescription></CardHeader></Card></main>;
   }
-  const [images, albums] = await Promise.all([managedImages(env, session.user_id), managedAlbums(env, session.user_id)]);
-  const { error } = await searchParams;
+  const [images, albums, subscription, limits, usage, migration] = await Promise.all([
+    managedImages(env, session.user_id),
+    managedAlbums(env, session.user_id),
+    subscriptionSummary(env, session.user_id),
+    planLimits(env, session.user_id),
+    uploadUsage(env, session.user_id),
+    env.DB.prepare(`SELECT
+        SUM(CASE WHEN status IN ('pending', 'processing') THEN 1 ELSE 0 END) AS pending,
+        SUM(CASE WHEN status = 'failed' AND attempts >= 5 THEN 1 ELSE 0 END) AS failed
+      FROM retention_jobs WHERE user_id = ?`).bind(session.user_id).first<{ pending: number | null; failed: number | null }>(),
+  ]);
+  const { error, checkout } = await searchParams;
+  const priceLabel = subscriptionPriceLabel(subscription);
   return (
     <main className="mx-auto max-w-6xl space-y-12">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -24,9 +37,19 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
         <form method="post" action="/logout"><Button type="submit" variant="outline">ログアウト</Button></form>
       </header>
       {error === "invalid_image_title" && <p className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">画像タイトルは100文字以内にしてください。</p>}
+      {checkout === "success" && subscription.plan !== "plus" && <p className="rounded-md border border-primary/40 bg-primary/10 px-4 py-3 text-sm">お申し込みを確認しています。少し待ってからページを再読み込みしてください。</p>}
+
+      <Card><CardHeader><div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-sm font-bold tracking-[0.16em] text-primary">Plan</p><CardTitle className="mt-1 flex flex-wrap items-baseline gap-x-2"><span>{subscription.plan === "plus" ? "Plus" : "無料プラン"}</span>{priceLabel && <span className="text-base font-normal text-muted-foreground">{priceLabel}</span>}</CardTitle><CardDescription>直近30日のアップロード: {usage} / {limits.uploadsPerThirtyDays}枚</CardDescription></div>
+        {subscription.plan === "plus" || (subscription.status && subscription.status !== "canceled" && subscription.status !== "incomplete_expired") ? <form method="post" action="/api/billing/portal"><Button type="submit" variant="outline">契約を管理</Button></form> : <a className={buttonVariants()} href="/plus">Plusを見る</a>}</div></CardHeader>
+        <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <p>保存期間: {limits.retentionDays}日 · アルバム: {limits.albums}冊まで</p>
+          {subscription.scheduledCancellationAt && <p>解約予約済みです。Plusは<LocalDateTime value={new Date(subscription.scheduledCancellationAt).toISOString()} />まで利用できます。</p>}
+          {(migration?.pending ?? 0) > 0 && <p>既存画像をPlus保存へ移行中です（残り{migration?.pending}枚）。</p>}
+          {(migration?.failed ?? 0) > 0 && <p className="text-destructive">移行できなかった画像が{migration?.failed}枚あります。</p>}
+        </CardContent></Card>
 
       <section className="space-y-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-2xl font-semibold">アルバム</h2><p className="text-muted-foreground">画像をまとめて、ひとつのURLで共有できます。</p></div><a className={buttonVariants()} href="/manage/albums/new">アルバムを作成</a></div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-2xl font-semibold">アルバム</h2><p className="text-muted-foreground">画像をまとめて、ひとつのURLで共有できます。</p></div>{albums.length < limits.albums ? <a className={buttonVariants()} href="/manage/albums/new">アルバムを作成</a> : <a className={buttonVariants({ variant: "outline" })} href="/plus">上限を増やす</a>}</div>
         {albums.length === 0 ? <p className="text-muted-foreground">アルバムはまだありません。</p> : <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{albums.map((album) => (
           <Card className="gap-4 overflow-hidden pt-0" key={album.id}>
             {album.cover_code ? <a href={`/manage/albums/${album.id}`} className="block overflow-hidden">

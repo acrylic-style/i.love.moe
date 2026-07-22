@@ -1,9 +1,8 @@
 import { allocateShortCode, authenticateSession, normalizeOptionalText } from "./service";
 import { createPassphraseRecord, parseVisibility, revokeTargetGrants, validPassphrase } from "./access";
 import type { AlbumImageRow, AlbumRow, ImageRow } from "./types";
+import { planLimits, PLUS_PLAN } from "./plans";
 
-const MAX_ALBUMS_PER_USER = 20;
-const MAX_IMAGES_PER_ALBUM = 50;
 
 export interface AlbumDetail {
   album: AlbumRow;
@@ -24,7 +23,7 @@ export async function managedAlbums(env: CloudflareEnv, userId: string): Promise
     FROM albums a JOIN short_links s ON s.target_type = 'album' AND s.target_id = a.id AND s.retired_at IS NULL
     WHERE a.owner_user_id = ? AND a.deleted_at IS NULL
     ORDER BY a.updated_at DESC LIMIT ?`)
-    .bind(Date.now(), Date.now(), userId, MAX_ALBUMS_PER_USER).all<AlbumRow>();
+    .bind(Date.now(), Date.now(), userId, PLUS_PLAN.albums).all<AlbumRow>();
   return rows.results;
 }
 
@@ -53,10 +52,12 @@ export async function createAlbum(request: Request, env: CloudflareEnv): Promise
   const imageIds = uniqueStrings(form.getAll("imageIds"));
   const visibility = parseVisibility(form.get("visibility"));
   const passphrase = form.get("passphrase");
+  const limits = await planLimits(env, session.user_id);
   if (!visibility || (visibility === "passphrase" && !validPassphrase(passphrase))) {
     return formError("/manage/albums/new", "invalid_access");
   }
-  if (!title || description === undefined || imageIds === null || imageIds.length > MAX_IMAGES_PER_ALBUM) {
+  if (visibility !== "unlisted" && !limits.protectedSharing) return formError("/manage/albums/new", "plus_required");
+  if (!title || description === undefined || imageIds === null || imageIds.length > limits.imagesPerAlbum) {
     return formError("/manage/albums/new", "invalid_album");
   }
   if (!await ownsAllImages(env, session.user_id, imageIds)) {
@@ -64,7 +65,7 @@ export async function createAlbum(request: Request, env: CloudflareEnv): Promise
   }
   const count = await env.DB.prepare("SELECT COUNT(*) AS count FROM albums WHERE owner_user_id = ? AND deleted_at IS NULL")
     .bind(session.user_id).first<{ count: number }>();
-  if ((count?.count ?? 0) >= MAX_ALBUMS_PER_USER) return formError("/manage/albums/new", "album_limit_reached");
+  if ((count?.count ?? 0) >= limits.albums) return formError("/manage/albums/new", "album_limit_reached");
 
   const now = Date.now();
   const id = crypto.randomUUID();
@@ -102,12 +103,15 @@ export async function updateAlbum(request: Request, env: CloudflareEnv, id: stri
   const visibility = parseVisibility(form.get("visibility"));
   const passphrase = form.get("passphrase");
   const errorPath = `/manage/albums/${id}`;
+  const limits = await planLimits(env, session.user_id);
   const changesPassphrase = typeof passphrase === "string" && passphrase.length > 0;
   if (!visibility || (visibility === "passphrase" && !album.has_passphrase && !validPassphrase(passphrase))
       || (changesPassphrase && !validPassphrase(passphrase))) {
     return formError(errorPath, "invalid_access");
   }
-  if (!title || description === undefined || requestedIds === null || requestedIds.length > MAX_IMAGES_PER_ALBUM) {
+  if (visibility !== "unlisted" && !limits.protectedSharing
+      && (visibility !== album.visibility || changesPassphrase)) return formError(errorPath, "plus_required");
+  if (!title || description === undefined || requestedIds === null || requestedIds.length > PLUS_PLAN.imagesPerAlbum) {
     return formError(errorPath, "invalid_album");
   }
   if (!await ownsAllImages(env, session.user_id, requestedIds)) return formError(errorPath, "invalid_images");
@@ -115,6 +119,14 @@ export async function updateAlbum(request: Request, env: CloudflareEnv, id: stri
   const existing = await env.DB.prepare("SELECT image_id, position FROM album_images WHERE album_id = ? ORDER BY position")
     .bind(id).all<{ image_id: string; position: number }>();
   const desired = new Set(requestedIds);
+  const membershipChanged = !sameSet(existing.results.map((row) => row.image_id), requestedIds);
+  if (limits.name === "free" && membershipChanged) {
+    const albumCount = await env.DB.prepare("SELECT COUNT(*) AS count FROM albums WHERE owner_user_id = ? AND deleted_at IS NULL")
+      .bind(session.user_id).first<{ count: number }>();
+    if ((albumCount?.count ?? 0) > limits.albums || requestedIds.length > limits.imagesPerAlbum) {
+      return formError(errorPath, "plus_required");
+    }
+  }
   const retained = existing.results.map((row) => row.image_id).filter((imageId) => desired.has(imageId));
   const retainedSet = new Set(retained);
   const orderedIds = [...retained, ...requestedIds.filter((imageId) => !retainedSet.has(imageId))];
@@ -148,17 +160,25 @@ export async function reorderAlbum(request: Request, env: CloudflareEnv, id: str
   const session = await authenticateSession(request, env);
   if (!session) return Response.json({ error: "not_found" }, { status: 404 });
   if (!await ownedAlbum(env, session.user_id, id)) return Response.json({ error: "not_found" }, { status: 404 });
+  const limits = await planLimits(env, session.user_id);
   const body = await safeJson<{ imageIds?: unknown }>(request);
   if (!Array.isArray(body?.imageIds) || body.imageIds.some((value) => typeof value !== "string")) {
     return Response.json({ error: "invalid_order" }, { status: 400 });
   }
   const imageIds = uniqueStrings(body.imageIds);
-  if (imageIds === null || imageIds.length > MAX_IMAGES_PER_ALBUM) {
+  if (imageIds === null || imageIds.length > PLUS_PLAN.imagesPerAlbum) {
     return Response.json({ error: "invalid_order" }, { status: 400 });
   }
   const current = await albumImages(env, id);
   if (current.length !== imageIds.length || !sameSet(current.map((image) => image.id), imageIds)) {
     return Response.json({ error: "album_changed" }, { status: 409 });
+  }
+  if (limits.name === "free") {
+    const albumCount = await env.DB.prepare("SELECT COUNT(*) AS count FROM albums WHERE owner_user_id = ? AND deleted_at IS NULL")
+      .bind(session.user_id).first<{ count: number }>();
+    if ((albumCount?.count ?? 0) > limits.albums || current.length > limits.imagesPerAlbum) {
+      return Response.json({ error: "plus_required" }, { status: 403 });
+    }
   }
   const now = Date.now();
   await env.DB.batch([
@@ -197,7 +217,7 @@ async function ownedAlbum(env: CloudflareEnv, userId: string, id: string): Promi
 
 async function albumImages(env: CloudflareEnv, albumId: string): Promise<AlbumImageRow[]> {
   const rows = await env.DB.prepare(`SELECT i.id, i.title, i.server_address, i.server_name, i.r2_key, i.byte_size, i.width, i.height,
-      i.created_at, i.expires_at, i.deleted_at, i.visibility, i.access_version, s.code, ai.position
+      i.created_at, i.expires_at, i.deleted_at, i.visibility, i.access_version, i.storage_tier, s.code, ai.position
     FROM album_images ai JOIN images i ON i.id = ai.image_id
       JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id AND s.retired_at IS NULL
     WHERE ai.album_id = ? AND i.deleted_at IS NULL AND i.expires_at > ?

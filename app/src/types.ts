@@ -16,6 +16,14 @@ export interface Env {
   EMAIL_FROM: string;
   RATE_LIMIT_SALT: string;
   ASSETS: Fetcher;
+  RETENTION_QUEUE: Queue<RetentionMessage>;
+  STRIPE_SECRET_KEY: string;
+  STRIPE_WEBHOOK_SECRET: string;
+  STRIPE_PLUS_PRICE_ID: string;
+}
+
+export interface RetentionMessage {
+  imageId: string;
 }
 
 export interface DeviceRow {
@@ -49,6 +57,7 @@ export interface ImageRow {
   visibility: Visibility;
   access_version: number;
   has_passphrase?: number;
+  storage_tier: "free" | "plus";
 }
 
 export interface AlbumRow {

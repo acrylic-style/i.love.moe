@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
 
 export default function HomePage() {
   return (
@@ -9,7 +10,7 @@ export default function HomePage() {
           <CardTitle className="text-4xl leading-tight tracking-tight sm:text-6xl">Minecraftの一枚を、すぐ共有。</CardTitle>
           <CardDescription className="text-base leading-7 sm:text-lg">Fabric Modからスクリーンショットをアップロードし、短いURLをクリップボードへ届けます。</CardDescription>
         </CardHeader>
-        <CardContent className="px-6 text-sm text-muted-foreground sm:px-10">現在、Fabric 1.21.11向けMVPを開発中です。</CardContent>
+        <CardContent className="flex flex-wrap items-center gap-4 px-6 text-sm text-muted-foreground sm:px-10"><span>現在、Fabric 1.21.11向けMVPを開発中です。</span><a className={buttonVariants({ variant: "outline" })} href="/plus">Plusを見る</a></CardContent>
       </Card>
     </main>
   );

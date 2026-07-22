@@ -1,0 +1,30 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "i-love-moe-retention",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-22",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "i-love-moe",
+      "database_id": "cd629907-42fd-4706-b086-6b56abb84aee"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "IMAGES",
+      "bucket_name": "ilovemoe"
+    }
+  ],
+  "queues": {
+    "producers": [
+      { "binding": "RETENTION_QUEUE", "queue": "i-love-moe-retention" }
+    ],
+    "consumers": [
+      { "queue": "i-love-moe-retention", "max_batch_size": 10, "max_retries": 5 }
+    ]
+  },
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  }
+}

@@ -6,11 +6,12 @@
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "workers_dev": false,
   "vars": {
-    "PUBLIC_BASE_URL": "https://i.らぶ.moe",
-    "EMAIL_FROM": "login@i.xn--29jub.moe"
+    "PUBLIC_BASE_URL": "https://i.xn--29jub.moe",
+    "EMAIL_FROM": "login@i.xn--29jub.moe",
+    "STRIPE_PLUS_PRICE_ID": "price_1Tw2vUDMpG6fNRiAaOjZcKPI"
   },
   "secrets": {
-    "required": ["RATE_LIMIT_SALT"]
+    "required": ["RATE_LIMIT_SALT", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]
   },
   "routes": [
     {
@@ -32,6 +33,11 @@
       "bucket_name": "ilovemoe"
     }
   ],
+  "queues": {
+    "producers": [
+      { "binding": "RETENTION_QUEUE", "queue": "i-love-moe-retention" }
+    ]
+  },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
