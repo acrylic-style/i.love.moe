@@ -1,0 +1,60 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "i-love-moe",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-07-22",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": false,
+  "vars": {
+    "PUBLIC_BASE_URL": "https://i.らぶ.moe",
+    "EMAIL_FROM": "login@i.xn--29jub.moe"
+  },
+  "secrets": {
+    "required": ["RATE_LIMIT_SALT"]
+  },
+  "routes": [
+    {
+      "pattern": "i.xn--29jub.moe",
+      "custom_domain": true
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "i-love-moe",
+      "database_id": "cd629907-42fd-4706-b086-6b56abb84aee",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "IMAGES",
+      "bucket_name": "ilovemoe"
+    }
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "send_email": [
+    {
+      "name": "EMAIL",
+      "remote": true
+    }
+  ],
+  "observability": {
+    "enabled": false,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": false,
+      "persist": true,
+      "head_sampling_rate": 1
+    }
+  }
+}

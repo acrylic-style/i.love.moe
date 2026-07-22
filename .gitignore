@@ -1,0 +1,14 @@
+app/node_modules/
+app/.next/
+app/.open-next/
+app/.wrangler/
+app/dist/
+app/coverage/
+app/.dev.vars
+app/.env
+app/.env.*
+!app/.dev.vars.example
+minecraft/.gradle/
+minecraft/build/
+minecraft/run/
+*.log

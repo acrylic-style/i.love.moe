@@ -1,0 +1,3 @@
+# 32文字以上のランダム値へ置き換えて .dev.vars として保存してください。
+NEXTJS_ENV=development
+RATE_LIMIT_SALT=replace-with-a-random-secret-at-least-32-characters
