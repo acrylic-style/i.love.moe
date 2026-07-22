@@ -1,4 +1,9 @@
 import type { AlbumImageRow, AlbumRow, ImageRow } from "@/types";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_album: "題名・説明・画像数をご確認ください。",
@@ -23,23 +28,21 @@ export function AlbumForm({
 }) {
   const selected = new Set(selectedImages.map((image) => image.id));
   return (
-    <form className="stack album-form" method="post" action={action}>
-      {error && ERROR_MESSAGES[error] && <p className="error">{ERROR_MESSAGES[error]}</p>}
-      <label htmlFor="album-title">題名</label>
-      <input id="album-title" name="title" required maxLength={100} defaultValue={album?.title ?? ""} />
-      <label htmlFor="album-description">説明（任意）</label>
-      <textarea id="album-description" name="description" maxLength={1000} rows={4} defaultValue={album?.description ?? ""} />
-      <fieldset><legend>収録画像（最大50枚）</legend>
-        {images.length === 0 ? <p className="empty">追加できる画像はありません。</p> : <div className="image-picker">{images.map((image) => (
-          <label className="image-choice" key={image.id}>
-            <input type="checkbox" name="imageIds" value={image.id} defaultChecked={selected.has(image.id)} />
+    <form className="space-y-6" method="post" action={action}>
+      {error && ERROR_MESSAGES[error] && <p className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">{ERROR_MESSAGES[error]}</p>}
+      <div className="space-y-2"><Label htmlFor="album-title">題名</Label><Input id="album-title" name="title" required maxLength={100} defaultValue={album?.title ?? ""} /></div>
+      <div className="space-y-2"><Label htmlFor="album-description">説明（任意）</Label><Textarea id="album-description" name="description" maxLength={1000} rows={4} defaultValue={album?.description ?? ""} /></div>
+      <fieldset className="rounded-lg border p-4"><legend className="px-2 text-sm font-medium">収録画像（最大50枚）</legend>
+        {images.length === 0 ? <p className="text-sm text-muted-foreground">追加できる画像はありません。</p> : <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{images.map((image) => (
+          <Label className="group relative grid cursor-pointer gap-2 rounded-lg border p-2 has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/10" key={image.id}>
+            <Checkbox className="absolute left-3 top-3 z-10 bg-background" name="imageIds" value={image.id} defaultChecked={selected.has(image.id)} />
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`/raw/${image.code}`} alt="" />
-            <span>{image.title ?? image.code}</span>
-          </label>
+            <img className="h-28 w-full rounded-md object-cover" src={`/raw/${image.code}`} alt="" />
+            <span className="truncate px-1">{image.title ?? image.code}</span>
+          </Label>
         ))}</div>}
       </fieldset>
-      <button className="primary" type="submit">{submitLabel}</button>
+      <Button type="submit">{submitLabel}</Button>
     </form>
   );
 }

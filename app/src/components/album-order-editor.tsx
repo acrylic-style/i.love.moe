@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { GripVerticalIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface OrderImage { id: string; title: string | null; code: string }
 
@@ -43,12 +45,12 @@ export function AlbumOrderEditor({ albumId, initialImages }: { albumId: string; 
   }
 
   if (images.length < 2) return null;
-  return <section className="order-editor"><h2>表示順</h2><p className="muted">ドラッグ、または上下ボタンで並べ替えられます。</p>
-    <ol className="order-list">{images.map((image, index) => <li key={image.id} draggable
+  return <section className="space-y-4 border-t pt-8"><div><h2 className="text-2xl font-semibold">表示順</h2><p className="text-muted-foreground">ドラッグ、または上下ボタンで並べ替えられます。</p></div>
+    <ol className="grid gap-2">{images.map((image, index) => <li className="flex items-center gap-3 rounded-lg border bg-card p-3" key={image.id} draggable
       onDragStart={() => setDraggedId(image.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => drop(image.id)}>
-      <span className="drag-handle">⋮⋮</span><span>{image.title ?? image.code}</span>
-      <span className="order-buttons"><button type="button" onClick={() => move(index, -1)} disabled={index === 0} aria-label="上へ移動">↑</button><button type="button" onClick={() => move(index, 1)} disabled={index === images.length - 1} aria-label="下へ移動">↓</button></span>
+      <GripVerticalIcon className="size-4 cursor-grab text-muted-foreground" /><span>{image.title ?? image.code}</span>
+      <span className="ml-auto flex gap-1"><Button variant="outline" size="icon" type="button" onClick={() => move(index, -1)} disabled={index === 0} aria-label="上へ移動">↑</Button><Button variant="outline" size="icon" type="button" onClick={() => move(index, 1)} disabled={index === images.length - 1} aria-label="下へ移動">↓</Button></span>
     </li>)}</ol>
-    <div className="inline-form"><button className="primary" type="button" onClick={save}>並び順を保存</button>{status && <span aria-live="polite">{status}</span>}</div>
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center"><Button type="button" onClick={save}>並び順を保存</Button>{status && <span className="text-sm text-muted-foreground" aria-live="polite">{status}</span>}</div>
   </section>;
 }

@@ -230,16 +230,17 @@ export async function deleteManagedImage(request: Request, env: CloudflareEnv, i
 }
 
 export async function updateManagedImageTitle(request: Request, env: CloudflareEnv, id: string): Promise<Response> {
+  const wantsJson = request.headers.get("accept")?.includes("application/json") ?? false;
   const session = await authenticateSession(request, env);
-  if (!session) return new Response(null, { status: 404 });
+  if (!session) return wantsJson ? apiError("not_found", 404) : new Response(null, { status: 404 });
   const form = await request.formData();
   const title = normalizeOptionalText(form.get("title"), 100);
-  if (title === undefined) return redirectWithError("/manage", "invalid_image_title");
+  if (title === undefined) return wantsJson ? apiError("invalid_image_title", 400) : redirectWithError("/manage", "invalid_image_title");
   const result = await env.DB.prepare(`UPDATE images SET title = ?
     WHERE id = ? AND owner_user_id = ? AND deleted_at IS NULL AND expires_at > ?`)
     .bind(title, id, session.user_id, Date.now()).run();
-  if ((result.meta.changes ?? 0) !== 1) return new Response(null, { status: 404 });
-  return new Response(null, { status: 303, headers: { location: "/manage" } });
+  if ((result.meta.changes ?? 0) !== 1) return wantsJson ? apiError("not_found", 404) : new Response(null, { status: 404 });
+  return wantsJson ? json({ saved: true }) : new Response(null, { status: 303, headers: { location: "/manage" } });
 }
 
 export async function logout(request: Request, env: CloudflareEnv): Promise<Response> {

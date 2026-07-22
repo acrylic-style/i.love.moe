@@ -1,192 +1,65 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
 :root {
-    color-scheme: dark;
-    --bg: #0d0d12;
-    --panel: #171720;
-    --line: #2c2c39;
-    --text: #f5f3ff;
-    --muted: #aaa7bb;
-    --accent: #e9a8d0
+  color-scheme: dark;
+  --radius: 0.75rem;
+  --background: oklch(0.145 0.012 310);
+  --foreground: oklch(0.97 0.008 310);
+  --card: oklch(0.19 0.015 310);
+  --card-foreground: oklch(0.97 0.008 310);
+  --popover: oklch(0.19 0.015 310);
+  --popover-foreground: oklch(0.97 0.008 310);
+  --primary: oklch(0.78 0.11 338);
+  --primary-foreground: oklch(0.2 0.03 330);
+  --secondary: oklch(0.25 0.018 310);
+  --secondary-foreground: oklch(0.97 0.008 310);
+  --muted: oklch(0.25 0.018 310);
+  --muted-foreground: oklch(0.7 0.02 310);
+  --accent: oklch(0.28 0.04 330);
+  --accent-foreground: oklch(0.97 0.008 310);
+  --destructive: oklch(0.64 0.2 25);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.78 0.11 338);
 }
 
-* {
-    box-sizing: border-box
-}
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
 
-body {
-    margin: 0;
-    min-height: 100vh;
-    padding: 32px 16px;
-    background: radial-gradient(circle at top, #292034 0, var(--bg) 45%);
-    color: var(--text);
-    font: 16px/1.6 system-ui, sans-serif
-}
+  body {
+    @apply bg-background text-foreground;
+    background-image: radial-gradient(circle at top, oklch(0.27 0.04 310), var(--background) 45%);
+  }
 
-a {
-    color: var(--accent)
-}
-
-.card {
-    width: min(100%, 1000px);
-    margin: 5vh auto;
-    padding: clamp(20px, 4vw, 48px);
-    border: 1px solid var(--line);
-    border-radius: 20px;
-    background: color-mix(in srgb, var(--panel) 94%, transparent);
-    box-shadow: 0 24px 80px #0008
-}
-
-.hero {
-    max-width: 720px
-}
-
-.eyebrow {
-    color: var(--accent);
-    font-weight: 700;
-    letter-spacing: .12em
-}
-
-.muted,
-.meta {
-    color: var(--muted)
-}
-
-h1 {
-    line-height: 1.15;
-    font-size: clamp(2rem, 7vw, 4rem);
-    margin: .2em 0 .5em
-}
-
-.viewer img {
-    display: block;
-    width: auto;
-    height: auto;
-    max-width: 100%;
-    max-height: 75vh;
-    margin: auto;
-    border-radius: 12px;
-    background: #09090c
-}
-
-.meta {
-    display: flex;
-    gap: 18px;
-    flex-wrap: wrap;
-    margin-top: 18px
-}
-
-.manage-header,
-.item-actions {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px
-}
-
-.manage-header h1 {
-    font-size: 2rem
-}
-
-h2, h3 { line-height: 1.25 }
-
-.manage-section { margin-top: 48px }
-
-.section-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 20px;
-    margin-bottom: 20px
-}
-
-.section-header h2, .section-header p { margin-top: 0 }
-
-.grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 18px
-}
-
-.item {
-    overflow: hidden;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    background: #101016
-}
-
-.item img {
-    display: block;
-    width: 100%;
-    height: 150px;
-    object-fit: cover
-}
-
-.item-actions {
-    padding: 12px
-}
-
-.item-body { padding: 14px }
-.item-body h3 { margin: 0 0 6px }
-.item-body .item-actions { padding: 12px 0 0 }
-.empty-cover { display: grid; place-items: center; height: 150px; color: var(--muted); background: #0b0b10 }
-
-input, textarea {
-    width: 100%;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 10px 12px;
-    background: #101016;
-    color: var(--text);
-    font: inherit
-}
-
-textarea { resize: vertical }
-.stack { display: grid; gap: 10px }
-.inline-form { display: flex; align-items: center; gap: 10px }
-.inline-form input { min-width: 0 }
-.album-form { gap: 14px }
-fieldset { min-width: 0; margin: 8px 0; border: 1px solid var(--line); border-radius: 12px; padding: 16px }
-.image-picker { display: grid; grid-template-columns: repeat(auto-fill,minmax(150px,1fr)); gap: 12px; margin-top: 12px }
-.image-choice { position: relative; display: grid; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer }
-.image-choice:has(input:checked) { border-color: var(--accent); background: #2a1e2b }
-.image-choice input { position: absolute; top: 12px; left: 12px; width: auto }
-.image-choice img { width: 100%; height: 100px; object-fit: cover; border-radius: 6px }
-.image-choice span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
-.button-link, button.primary { display: inline-block; border-radius: 8px; padding: 9px 14px; background: var(--accent); color: #241520; font-weight: 700; text-decoration: none }
-button.danger { color: #ffb9c2; border-color: #743743 }
-.error { padding: 10px 14px; border: 1px solid #8b4350; border-radius: 8px; color: #ffd1d7; background: #371921 }
-.order-editor { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--line) }
-.order-list { list-style: none; padding: 0; display: grid; gap: 8px }
-.order-list li { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #101016 }
-.drag-handle { color: var(--muted); cursor: grab }
-.order-buttons { display: flex; gap: 6px; margin-left: auto }
-.order-buttons button { padding: 4px 9px }
-.album-description { white-space: pre-wrap; color: var(--muted) }
-.album-grid { columns: 3 240px; column-gap: 16px; margin-top: 28px }
-.album-grid figure { break-inside: avoid; margin: 0 0 16px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #101016 }
-.album-grid img { display: block; width: 100%; height: auto }
-.album-grid figcaption { padding: 10px 12px }
-.image-title { font-size: clamp(1.5rem,4vw,2.5rem) }
-
-button {
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 8px 12px;
-    background: #252532;
-    color: var(--text);
-    cursor: pointer
-}
-
-button:hover {
-    border-color: var(--accent)
-}
-
-.empty {
-    color: var(--muted)
-}
-
-@media (max-width: 640px) {
-    body { padding: 16px 10px }
-    .section-header, .manage-header { align-items: stretch; flex-direction: column }
-    .inline-form { align-items: stretch; flex-direction: column }
-    .inline-form button { width: 100% }
 }

@@ -4,6 +4,7 @@ import { cache } from "react";
 import { findActiveAlbumByCode } from "@/albums";
 import { getEnv } from "@/cloudflare";
 import { LocalDateTime } from "@/components/local-date-time";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { findActiveImageByCode, SHORT_CODE_PATTERN } from "@/service";
 
 export const dynamic = "force-dynamic";
@@ -35,15 +36,16 @@ export default async function ViewerPage({ params }: { params: Promise<{ code: s
   if (!target) notFound();
   if (target.type === "album") {
     const { album, images } = target.detail;
-    return <main className="card album-viewer"><p className="eyebrow">Album</p><h1>{album.title}</h1>
-      {album.description && <p className="album-description">{album.description}</p>}
-      {images.length === 0 ? <p className="empty">このアルバムには、今見られる画像がありません。</p> : <div className="album-grid">{images.map((albumImage) => (
-        <figure key={albumImage.id}><a href={`/${albumImage.code}`}>
+    return <main className="mx-auto max-w-6xl"><Card className="bg-card/95 shadow-2xl"><CardHeader><p className="text-sm font-bold tracking-[0.16em] text-primary">Album</p><CardTitle className="text-3xl sm:text-5xl">{album.title}</CardTitle>
+      {album.description && <CardDescription className="whitespace-pre-wrap text-base">{album.description}</CardDescription>}
+      </CardHeader><CardContent>
+      {images.length === 0 ? <p className="text-muted-foreground">このアルバムには、今見られる画像がありません。</p> : <div className="[columns:3_240px] [column-gap:1rem]">{images.map((albumImage) => (
+        <figure className="mb-4 break-inside-avoid overflow-hidden rounded-xl border bg-card" key={albumImage.id}><a className="block overflow-hidden" href={`/${albumImage.code}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`/raw/${albumImage.code}`} alt={albumImage.title ?? "Minecraft screenshot"} />
-        </a>{albumImage.title && <figcaption>{albumImage.title}</figcaption>}</figure>
+          <img className="h-auto w-full transition-transform hover:scale-[1.01]" src={`/raw/${albumImage.code}`} alt={albumImage.title ?? "Minecraft screenshot"} />
+        </a>{albumImage.title && <figcaption className="px-4 py-3 text-sm">{albumImage.title}</figcaption>}</figure>
       ))}</div>}
-    </main>;
+      </CardContent></Card></main>;
   }
   const image = target.image;
   const expires = new Date(image.expires_at).toISOString();
@@ -51,12 +53,13 @@ export default async function ViewerPage({ params }: { params: Promise<{ code: s
     ? `${(image.byte_size / 1024 / 1024).toFixed(1)} MB`
     : `${Math.ceil(image.byte_size / 1024)} KB`;
   return (
-    <main className="card viewer">
-      {image.title && <h1 className="image-title">{image.title}</h1>}
+    <main className="mx-auto max-w-6xl"><Card className="bg-card/95 shadow-2xl">
+      {image.title && <CardHeader><CardTitle className="text-2xl sm:text-4xl">{image.title}</CardTitle></CardHeader>}
+      <CardContent>
       {/* Uploaded PNG dimensions are validated server-side; Next image optimization is unnecessary here. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`/raw/${code}`} width={image.width} height={image.height} alt={image.title ?? "Minecraft screenshot"} />
-      <div className="meta"><span>{image.width} × {image.height}</span><span>{size}</span><span><LocalDateTime value={expires} />まで</span></div>
-    </main>
+      <img className="mx-auto max-h-[75vh] max-w-full rounded-lg bg-black/30 object-contain" src={`/raw/${code}`} width={image.width} height={image.height} alt={image.title ?? "Minecraft screenshot"} />
+      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground"><span>{image.width} × {image.height}</span><span>{size}</span><span><LocalDateTime value={expires} />まで</span></div>
+      </CardContent></Card></main>
   );
 }

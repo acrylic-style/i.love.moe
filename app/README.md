@@ -1,6 +1,6 @@
 # Next.js app
 
-Next.js App Routerを`@opennextjs/cloudflare`でCloudflare Workersへ配置する、バックエンド兼Webアプリです。D1、R2、Email SendingをWorkers Bindingとして利用します。
+Next.js App Routerを`@opennextjs/cloudflare`でCloudflare Workersへ配置する、バックエンド兼Webアプリです。UIはTailwind CSS v4とshadcn/uiで構成し、D1、R2、Email SendingをWorkers Bindingとして利用します。
 
 ## セットアップ
 
