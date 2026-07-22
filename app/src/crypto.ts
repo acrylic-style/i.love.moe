@@ -36,6 +36,43 @@ export async function hmacSha256(secret: string, value: string): Promise<string>
   return [...new Uint8Array(signature)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+export async function pbkdf2Sha256(value: string, salt: Uint8Array, iterations: number): Promise<Uint8Array> {
+  const material = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(value),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt: salt as BufferSource, iterations },
+    material,
+    256,
+  );
+  return new Uint8Array(bits);
+}
+
+export function encodeBase64Url(bytes: Uint8Array): string {
+  return base64Url(bytes);
+}
+
+export function decodeBase64Url(value: string): Uint8Array | null {
+  if (!/^[0-9A-Za-z_-]+$/.test(value)) return null;
+  try {
+    const base64 = value.replaceAll("-", "+").replaceAll("_", "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+    return Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+  } catch {
+    return null;
+  }
+}
+
+export function timingSafeEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index++) difference |= left[index]! ^ right[index]!;
+  return difference === 0;
+}
+
 function base64Url(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);

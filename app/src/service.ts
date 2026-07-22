@@ -1,4 +1,5 @@
 import { hmacSha256, randomBase62, randomToken, sha256 } from "./crypto";
+import { authorizeAlbumForImage, authorizeTarget, createPassphraseRecord, parseVisibility, revokeTargetGrants, validPassphrase } from "./access";
 import { inspectPng, MAX_IMAGE_BYTES } from "./png";
 import type { DeviceRow, ImageLookupRow, ImageRow, MagicLinkRow, SessionRow } from "./types";
 
@@ -204,16 +205,24 @@ export async function verifyMagicLink(url: URL, env: CloudflareEnv): Promise<Res
   });
 }
 
-export async function serveRawImage(code: string, env: CloudflareEnv): Promise<Response> {
+export async function serveRawImage(request: Request, code: string, env: CloudflareEnv): Promise<Response> {
   if (!SHORT_CODE_PATTERN.test(code)) return new Response(null, { status: 404 });
   const image = await findActiveImageByCode(env, code);
   if (!image) return new Response(null, { status: 404 });
+  const cookieHeader = request.headers.get("cookie");
+  let allowed = await authorizeTarget(cookieHeader, env, "image", image);
+  const albumCode = new URL(request.url).searchParams.get("album");
+  if (!allowed && albumCode && SHORT_CODE_PATTERN.test(albumCode)) {
+    allowed = await authorizeAlbumForImage(cookieHeader, env, albumCode, image.id);
+  }
+  if (!allowed) return new Response(null, { status: 404, headers: { "cache-control": "private, no-store" } });
   const object = await env.IMAGES.get(image.r2_key);
   if (!object) return new Response(null, { status: 404 });
   return new Response(object.body, { headers: {
     "content-type": "image/png",
     "content-length": String(object.size),
-    "cache-control": "public, max-age=3600",
+    // A previously public CDN response must not survive a later switch to private visibility.
+    "cache-control": "private, no-store",
     "x-content-type-options": "nosniff",
     "content-security-policy": "default-src 'none'; sandbox",
     etag: object.httpEtag,
@@ -248,6 +257,48 @@ export async function updateManagedImageTitle(request: Request, env: CloudflareE
   return wantsJson ? json({ saved: true }) : new Response(null, { status: 303, headers: { location: "/manage" } });
 }
 
+export async function updateManagedImageVisibility(request: Request, env: CloudflareEnv, id: string): Promise<Response> {
+  const session = await authenticateSession(request, env);
+  if (!session) return apiError("not_found", 404);
+  const form = await request.formData();
+  const visibility = parseVisibility(form.get("visibility"));
+  const passphrase = form.get("passphrase");
+  if (!visibility) return apiError("invalid_visibility", 400);
+  const current = await env.DB.prepare(`SELECT visibility, passphrase_hash
+      FROM images WHERE id = ? AND owner_user_id = ? AND deleted_at IS NULL AND expires_at > ?`)
+    .bind(id, session.user_id, Date.now()).first<{ visibility: string; passphrase_hash: string | null }>();
+  if (!current) return apiError("not_found", 404);
+  const needsPassphrase = visibility === "passphrase" && !current.passphrase_hash;
+  const changesPassphrase = typeof passphrase === "string" && passphrase.length > 0;
+  if ((needsPassphrase || changesPassphrase) && !validPassphrase(passphrase)) return apiError("invalid_passphrase", 400);
+
+  let salt: string | null = null;
+  let hash: string | null = null;
+  let iterations: number | null = null;
+  if (visibility === "passphrase") {
+    if (changesPassphrase) {
+      const record = await createPassphraseRecord(passphrase as string);
+      salt = record.passphrase_salt;
+      hash = record.passphrase_hash;
+      iterations = record.passphrase_iterations;
+    } else {
+      const existing = await env.DB.prepare(`SELECT passphrase_salt, passphrase_hash, passphrase_iterations
+          FROM images WHERE id = ?`).bind(id).first<{
+            passphrase_salt: string | null; passphrase_hash: string | null; passphrase_iterations: number | null;
+          }>();
+      salt = existing?.passphrase_salt ?? null;
+      hash = existing?.passphrase_hash ?? null;
+      iterations = existing?.passphrase_iterations ?? null;
+    }
+  }
+  await env.DB.prepare(`UPDATE images SET visibility = ?, passphrase_salt = ?, passphrase_hash = ?,
+      passphrase_iterations = ?, access_version = access_version + 1
+      WHERE id = ? AND owner_user_id = ?`)
+    .bind(visibility, salt, hash, iterations, id, session.user_id).run();
+  await revokeTargetGrants(env, "image", id);
+  return json({ saved: true, visibility, hasPassphrase: Boolean(hash) });
+}
+
 export async function logout(request: Request, env: CloudflareEnv): Promise<Response> {
   const token = cookieValue(request, "session");
   if (token) await env.DB.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(await sha256(token)).run();
@@ -262,7 +313,8 @@ export async function authenticateSessionToken(token: string | undefined, env: C
 
 export async function managedImages(env: CloudflareEnv, userId: string): Promise<ImageRow[]> {
   const rows = await env.DB.prepare(`SELECT i.id, i.title, i.server_address, i.server_name, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
-      i.expires_at, i.deleted_at, s.code
+      i.expires_at, i.deleted_at, i.visibility, i.access_version,
+      (i.passphrase_hash IS NOT NULL) AS has_passphrase, s.code
     FROM images i JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id
     WHERE i.owner_user_id = ? AND i.deleted_at IS NULL AND i.expires_at > ?
     ORDER BY i.created_at DESC LIMIT 100`)
@@ -270,9 +322,18 @@ export async function managedImages(env: CloudflareEnv, userId: string): Promise
   return rows.results;
 }
 
+export async function managedImageDetail(env: CloudflareEnv, userId: string, id: string): Promise<ImageRow | null> {
+  return env.DB.prepare(`SELECT i.id, i.title, i.server_address, i.server_name, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
+      i.expires_at, i.deleted_at, i.visibility, i.access_version,
+      (i.passphrase_hash IS NOT NULL) AS has_passphrase, s.code
+    FROM images i JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id AND s.retired_at IS NULL
+    WHERE i.id = ? AND i.owner_user_id = ? AND i.deleted_at IS NULL AND i.expires_at > ?`)
+    .bind(id, userId, Date.now()).first<ImageRow>();
+}
+
 export async function findActiveImageByCode(env: CloudflareEnv, code: string): Promise<ImageLookupRow | null> {
   return env.DB.prepare(`SELECT i.id, i.title, i.server_address, i.server_name, i.owner_device_id, i.owner_user_id, i.r2_key, i.byte_size, i.width,
-      i.height, i.created_at, i.expires_at, i.deleted_at, s.code
+      i.height, i.created_at, i.expires_at, i.deleted_at, i.visibility, i.access_version, s.code
     FROM short_links s JOIN images i ON i.id = s.target_id
     WHERE s.code = ? AND s.target_type = 'image' AND s.retired_at IS NULL
       AND i.deleted_at IS NULL AND i.expires_at > ?`)
@@ -305,7 +366,7 @@ export async function allocateShortCode(env: CloudflareEnv): Promise<string> {
 async function ownedImages(env: CloudflareEnv, deviceId: string, userId: string | null): Promise<ImageRow[]> {
   const ownerClause = userId ? "i.owner_user_id = ?" : "i.owner_device_id = ?";
   const rows = await env.DB.prepare(`SELECT i.id, i.title, i.server_address, i.server_name, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
-      i.expires_at, i.deleted_at, s.code
+      i.expires_at, i.deleted_at, i.visibility, i.access_version, s.code
     FROM images i JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id
     WHERE ${ownerClause} AND i.deleted_at IS NULL AND i.expires_at > ?
     ORDER BY i.created_at DESC LIMIT 100`)
@@ -316,7 +377,7 @@ async function ownedImages(env: CloudflareEnv, deviceId: string, userId: string 
 async function findOwnedImage(env: CloudflareEnv, id: string, deviceId: string, userId: string | null): Promise<ImageLookupRow | null> {
   const ownerClause = userId ? "i.owner_user_id = ?" : "i.owner_device_id = ?";
   return env.DB.prepare(`SELECT i.id, i.title, i.server_address, i.server_name, i.owner_device_id, i.owner_user_id, i.r2_key, i.byte_size, i.width,
-      i.height, i.created_at, i.expires_at, i.deleted_at, s.code
+      i.height, i.created_at, i.expires_at, i.deleted_at, i.visibility, i.access_version, s.code
     FROM images i JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id
     WHERE i.id = ? AND ${ownerClause}`)
     .bind(id, userId ?? deviceId).first<ImageLookupRow>();
@@ -343,6 +404,7 @@ function publicImage(image: ImageRow, env: CloudflareEnv): Record<string, unknow
     byteSize: image.byte_size,
     createdAt: new Date(image.created_at).toISOString(),
     expiresAt: new Date(image.expires_at).toISOString(),
+    visibility: image.visibility,
   };
 }
 

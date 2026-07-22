@@ -3,7 +3,6 @@ import { managedAlbums } from "@/albums";
 import { getEnv } from "@/cloudflare";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { ImageTitleForm } from "@/components/image-title-form";
 import { ServerMetadata } from "@/components/server-metadata";
 import { authenticateSessionToken, managedImages } from "@/service";
 
@@ -33,7 +32,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
             {album.cover_code ? <a href={`/manage/albums/${album.id}`} className="block overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}<img className="h-44 w-full object-cover transition-transform hover:scale-[1.02]" src={`/raw/${album.cover_code}`} alt="" />
             </a> : <div className="grid h-44 place-items-center bg-muted text-sm text-muted-foreground">画像なし</div>}
-            <CardHeader><CardTitle>{album.title}</CardTitle><CardDescription>{album.image_count ?? 0}枚 · <a className="text-primary hover:underline" href={`/${album.code}`}>{album.code}</a></CardDescription></CardHeader>
+            <CardHeader><CardTitle>{album.title}</CardTitle><CardDescription>{album.image_count ?? 0}枚 · {visibilityLabel(album.visibility)} · <a className="text-primary hover:underline" href={`/${album.code}`}>{album.code}</a></CardDescription></CardHeader>
             <CardFooter><a className={buttonVariants({ variant: "outline", size: "sm" })} href={`/manage/albums/${album.id}`}>編集する</a></CardFooter>
           </Card>
         ))}</div>}
@@ -43,17 +42,23 @@ export default async function ManagePage({ searchParams }: { searchParams: Promi
         <div><h2 className="text-2xl font-semibold">画像</h2><p className="text-muted-foreground">タイトルは共有ページとアルバムに表示されます。</p></div>
         {images.length === 0 ? <p className="text-muted-foreground">管理できる画像はありません。</p> : <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{images.map((image) => (
           <Card className="gap-4 overflow-hidden pt-0" key={image.id}>
-            <a href={`/${image.code}`} className="block overflow-hidden">
+            <a href={`/manage/images/${image.id}`} className="block overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}<img className="h-44 w-full object-cover transition-transform hover:scale-[1.02]" src={`/raw/${image.code}`} alt={image.title ?? ""} />
             </a>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3">
+              <div><h3 className="truncate font-semibold">{image.title ?? "タイトルなし"}</h3><p className="mt-1 text-sm text-muted-foreground">{visibilityLabel(image.visibility)}</p></div>
               <ServerMetadata name={image.server_name} address={image.server_address} compact />
-              <ImageTitleForm imageId={image.id} initialTitle={image.title} />
-              <div className="flex items-center justify-between gap-3"><a className="text-sm text-primary hover:underline" href={`/${image.code}`}>{image.code}</a><form method="post" action={`/manage/images/${image.id}/delete`}><Button variant="destructive" size="sm" type="submit">削除</Button></form></div>
+              <div className="flex flex-wrap items-center justify-between gap-3"><a className="text-sm text-primary hover:underline" href={`/${image.code}`}>{image.code}</a><a className={buttonVariants({ variant: "outline", size: "sm" })} href={`/manage/images/${image.id}`}>編集する</a></div>
             </CardContent>
           </Card>
         ))}</div>}
       </section>
     </main>
   );
+}
+
+function visibilityLabel(visibility: "unlisted" | "private" | "passphrase"): string {
+  if (visibility === "private") return "非公開";
+  if (visibility === "passphrase") return "合言葉付き公開";
+  return "URL限定公開";
 }

@@ -1,4 +1,5 @@
 import { allocateShortCode, authenticateSession, normalizeOptionalText } from "./service";
+import { createPassphraseRecord, parseVisibility, revokeTargetGrants, validPassphrase } from "./access";
 import type { AlbumImageRow, AlbumRow, ImageRow } from "./types";
 
 const MAX_ALBUMS_PER_USER = 20;
@@ -11,7 +12,8 @@ export interface AlbumDetail {
 
 export async function managedAlbums(env: CloudflareEnv, userId: string): Promise<AlbumRow[]> {
   const rows = await env.DB.prepare(`SELECT a.id, a.owner_user_id, a.title, a.description, a.created_at,
-      a.updated_at, a.deleted_at, s.code,
+      a.updated_at, a.deleted_at, a.visibility, a.access_version,
+      (a.passphrase_hash IS NOT NULL) AS has_passphrase, s.code,
       (SELECT sl.code FROM album_images ai
         JOIN images i ON i.id = ai.image_id
         JOIN short_links sl ON sl.target_type = 'image' AND sl.target_id = i.id AND sl.retired_at IS NULL
@@ -34,7 +36,7 @@ export async function managedAlbumDetail(env: CloudflareEnv, userId: string, id:
 
 export async function findActiveAlbumByCode(env: CloudflareEnv, code: string): Promise<AlbumDetail | null> {
   const album = await env.DB.prepare(`SELECT a.id, a.owner_user_id, a.title, a.description, a.created_at,
-      a.updated_at, a.deleted_at, s.code
+      a.updated_at, a.deleted_at, a.visibility, a.access_version, s.code
     FROM short_links s JOIN albums a ON a.id = s.target_id
     WHERE s.code = ? AND s.target_type = 'album' AND s.retired_at IS NULL AND a.deleted_at IS NULL`)
     .bind(code).first<AlbumRow>();
@@ -49,6 +51,11 @@ export async function createAlbum(request: Request, env: CloudflareEnv): Promise
   const title = requiredText(form.get("title"), 100);
   const description = normalizeOptionalText(form.get("description"), 1000);
   const imageIds = uniqueStrings(form.getAll("imageIds"));
+  const visibility = parseVisibility(form.get("visibility"));
+  const passphrase = form.get("passphrase");
+  if (!visibility || (visibility === "passphrase" && !validPassphrase(passphrase))) {
+    return formError("/manage/albums/new", "invalid_access");
+  }
   if (!title || description === undefined || imageIds === null || imageIds.length > MAX_IMAGES_PER_ALBUM) {
     return formError("/manage/albums/new", "invalid_album");
   }
@@ -62,10 +69,16 @@ export async function createAlbum(request: Request, env: CloudflareEnv): Promise
   const now = Date.now();
   const id = crypto.randomUUID();
   const code = await allocateShortCode(env);
+  const passphraseRecord = visibility === "passphrase"
+    ? await createPassphraseRecord(passphrase as string)
+    : { passphrase_salt: null, passphrase_hash: null, passphrase_iterations: null };
   const statements = [
     env.DB.prepare(`INSERT INTO albums
-      (id, owner_user_id, title, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`)
-      .bind(id, session.user_id, title, description, now, now),
+      (id, owner_user_id, title, description, created_at, updated_at, visibility,
+        passphrase_salt, passphrase_hash, passphrase_iterations)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(id, session.user_id, title, description, now, now, visibility,
+        passphraseRecord.passphrase_salt, passphraseRecord.passphrase_hash, passphraseRecord.passphrase_iterations),
     env.DB.prepare("INSERT INTO short_links (code, target_type, target_id, created_at) VALUES (?, 'album', ?, ?)")
       .bind(code, id, now),
     ...imageIds.map((imageId, position) => env.DB.prepare(
@@ -86,7 +99,14 @@ export async function updateAlbum(request: Request, env: CloudflareEnv, id: stri
   const title = requiredText(form.get("title"), 100);
   const description = normalizeOptionalText(form.get("description"), 1000);
   const requestedIds = uniqueStrings(form.getAll("imageIds"));
+  const visibility = parseVisibility(form.get("visibility"));
+  const passphrase = form.get("passphrase");
   const errorPath = `/manage/albums/${id}`;
+  const changesPassphrase = typeof passphrase === "string" && passphrase.length > 0;
+  if (!visibility || (visibility === "passphrase" && !album.has_passphrase && !validPassphrase(passphrase))
+      || (changesPassphrase && !validPassphrase(passphrase))) {
+    return formError(errorPath, "invalid_access");
+  }
   if (!title || description === undefined || requestedIds === null || requestedIds.length > MAX_IMAGES_PER_ALBUM) {
     return formError(errorPath, "invalid_album");
   }
@@ -99,14 +119,28 @@ export async function updateAlbum(request: Request, env: CloudflareEnv, id: stri
   const retainedSet = new Set(retained);
   const orderedIds = [...retained, ...requestedIds.filter((imageId) => !retainedSet.has(imageId))];
   const now = Date.now();
+  const accessChanged = visibility !== album.visibility || changesPassphrase;
+  let passphraseRecord = { passphrase_salt: null as string | null, passphrase_hash: null as string | null, passphrase_iterations: null as number | null };
+  if (visibility === "passphrase") {
+    if (changesPassphrase) {
+      passphraseRecord = await createPassphraseRecord(passphrase as string);
+    } else {
+      passphraseRecord = await env.DB.prepare(`SELECT passphrase_salt, passphrase_hash, passphrase_iterations
+          FROM albums WHERE id = ?`).bind(id).first<typeof passphraseRecord>() ?? passphraseRecord;
+    }
+  }
   await env.DB.batch([
-    env.DB.prepare("UPDATE albums SET title = ?, description = ?, updated_at = ? WHERE id = ? AND owner_user_id = ? AND deleted_at IS NULL")
-      .bind(title, description, now, id, session.user_id),
+    env.DB.prepare(`UPDATE albums SET title = ?, description = ?, updated_at = ?, visibility = ?,
+        passphrase_salt = ?, passphrase_hash = ?, passphrase_iterations = ?, access_version = ?
+      WHERE id = ? AND owner_user_id = ? AND deleted_at IS NULL`)
+      .bind(title, description, now, visibility, passphraseRecord.passphrase_salt, passphraseRecord.passphrase_hash,
+        passphraseRecord.passphrase_iterations, album.access_version + (accessChanged ? 1 : 0), id, session.user_id),
     env.DB.prepare("DELETE FROM album_images WHERE album_id = ?").bind(id),
     ...orderedIds.map((imageId, position) => env.DB.prepare(
       "INSERT INTO album_images (album_id, image_id, position, added_at) VALUES (?, ?, ?, ?)",
     ).bind(id, imageId, position, now)),
   ]);
+  if (accessChanged) await revokeTargetGrants(env, "album", id);
   return new Response(null, { status: 303, headers: { location: errorPath } });
 }
 
@@ -154,7 +188,8 @@ export async function deleteAlbum(request: Request, env: CloudflareEnv, id: stri
 
 async function ownedAlbum(env: CloudflareEnv, userId: string, id: string): Promise<AlbumRow | null> {
   return env.DB.prepare(`SELECT a.id, a.owner_user_id, a.title, a.description, a.created_at,
-      a.updated_at, a.deleted_at, s.code
+      a.updated_at, a.deleted_at, a.visibility, a.access_version,
+      (a.passphrase_hash IS NOT NULL) AS has_passphrase, s.code
     FROM albums a JOIN short_links s ON s.target_type = 'album' AND s.target_id = a.id AND s.retired_at IS NULL
     WHERE a.id = ? AND a.owner_user_id = ? AND a.deleted_at IS NULL`)
     .bind(id, userId).first<AlbumRow>();
@@ -162,7 +197,7 @@ async function ownedAlbum(env: CloudflareEnv, userId: string, id: string): Promi
 
 async function albumImages(env: CloudflareEnv, albumId: string): Promise<AlbumImageRow[]> {
   const rows = await env.DB.prepare(`SELECT i.id, i.title, i.server_address, i.server_name, i.r2_key, i.byte_size, i.width, i.height,
-      i.created_at, i.expires_at, i.deleted_at, s.code, ai.position
+      i.created_at, i.expires_at, i.deleted_at, i.visibility, i.access_version, s.code, ai.position
     FROM album_images ai JOIN images i ON i.id = ai.image_id
       JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id AND s.retired_at IS NULL
     WHERE ai.album_id = ? AND i.deleted_at IS NULL AND i.expires_at > ?

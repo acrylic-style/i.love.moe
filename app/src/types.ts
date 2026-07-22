@@ -23,6 +23,16 @@ export interface DeviceRow {
   user_id: string | null;
 }
 
+export type Visibility = "unlisted" | "private" | "passphrase";
+
+export interface AccessControlledRow {
+  id: string;
+  owner_user_id: string | null;
+  code: string;
+  visibility: Visibility;
+  access_version: number;
+}
+
 export interface ImageRow {
   id: string;
   title: string | null;
@@ -36,6 +46,9 @@ export interface ImageRow {
   expires_at: number;
   deleted_at: number | null;
   code: string;
+  visibility: Visibility;
+  access_version: number;
+  has_passphrase?: number;
 }
 
 export interface AlbumRow {
@@ -49,6 +62,9 @@ export interface AlbumRow {
   code: string;
   cover_code?: string | null;
   image_count?: number;
+  visibility: Visibility;
+  access_version: number;
+  has_passphrase?: number;
 }
 
 export interface AlbumImageRow extends ImageRow {
