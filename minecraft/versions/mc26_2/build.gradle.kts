@@ -46,3 +46,14 @@ tasks.jar {
         rename { "${it}_${base.archivesName.get()}" }
     }
 }
+
+modrinth {
+    versionName.set("i.らぶ.moe ${project.version} for Fabric 26.2")
+    versionNumber.set("${project.version}+26.2-fabric")
+    uploadFile.set(tasks.jar)
+    gameVersions.add("26.2")
+    loaders.add("fabric")
+    dependencies {
+        required.project("fabric-api")
+    }
+}
