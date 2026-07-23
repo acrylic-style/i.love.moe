@@ -4,6 +4,7 @@
   "version": "${version}",
   "name": "i.らぶ.moe",
   "description": "Minecraft screenshots, shared in one click.",
+  "icon": "assets/i_love_moe/icon.png",
   "authors": ["i.らぶ.moe contributors"],
   "contact": {
     "homepage": "https://i.らぶ.moe"

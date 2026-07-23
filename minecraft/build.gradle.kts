@@ -1,4 +1,5 @@
 import com.modrinth.minotaur.ModrinthExtension
+import org.gradle.language.jvm.tasks.ProcessResources
 
 plugins {
     id("net.fabricmc.fabric-loom-remap") version "1.17.16" apply false
@@ -19,6 +20,12 @@ subprojects {
     if (!name.startsWith("mc")) return@subprojects
 
     apply(plugin = "com.modrinth.minotaur")
+
+    tasks.withType<ProcessResources>()
+        .matching { it.name == "processResources" }
+        .configureEach {
+            from(rootProject.file("src/main/resources"))
+        }
 
     extensions.configure<ModrinthExtension>("modrinth") {
         projectId.set(
