@@ -9,45 +9,43 @@
     "PUBLIC_BASE_URL": "https://i.xn--29jub.moe",
     "EMAIL_FROM": "login@i.xn--29jub.moe",
     "STRIPE_PLUS_PRICE_ID": "price_1Tw3s8DuEzGgZNJftccZyYBy",
-    "LEGAL_NOTICE_URL": "https://gist.github.com/acrylic-style/002d58b4416b55d36c965cfd6d81e1c2"
+    "LEGAL_NOTICE_URL": "https://gist.github.com/acrylic-style/002d58b4416b55d36c965cfd6d81e1c2",
   },
   "secrets": {
-    "required": ["RATE_LIMIT_SALT", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]
+    "required": ["RATE_LIMIT_SALT", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"],
   },
   "routes": [
     {
       "pattern": "i.xn--29jub.moe",
-      "custom_domain": true
-    }
+      "custom_domain": true,
+    },
   ],
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "i-love-moe",
       "database_id": "cd629907-42fd-4706-b086-6b56abb84aee",
-      "migrations_dir": "migrations"
-    }
+      "migrations_dir": "migrations",
+    },
   ],
   "r2_buckets": [
     {
       "binding": "IMAGES",
-      "bucket_name": "ilovemoe"
-    }
+      "bucket_name": "ilovemoe",
+    },
   ],
   "queues": {
-    "producers": [
-      { "binding": "RETENTION_QUEUE", "queue": "i-love-moe-retention" }
-    ]
+    "producers": [{ "binding": "RETENTION_QUEUE", "queue": "i-love-moe-retention" }],
   },
   "assets": {
     "directory": ".open-next/assets",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
   },
   "send_email": [
     {
       "name": "EMAIL",
-      "remote": true
-    }
+      "remote": true,
+    },
   ],
   "observability": {
     "enabled": false,
@@ -56,12 +54,12 @@
       "enabled": true,
       "head_sampling_rate": 1,
       "persist": true,
-      "invocation_logs": true
+      "invocation_logs": true,
     },
     "traces": {
       "enabled": false,
       "persist": true,
-      "head_sampling_rate": 1
-    }
-  }
+      "head_sampling_rate": 1,
+    },
+  },
 }

@@ -3,15 +3,8 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": [
-      "DOM",
-      "DOM.Iterable",
-      "ES2022",
-      "WebWorker"
-    ],
-    "types": [
-      "@cloudflare/workers-types"
-    ],
+    "lib": ["DOM", "DOM.Iterable", "ES2022", "WebWorker"],
+    "types": ["@cloudflare/workers-types"],
     "jsx": "react-jsx",
     "incremental": true,
     "plugins": [
@@ -20,9 +13,7 @@
       }
     ],
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["./src/*"]
     },
     "strict": true,
     "noUncheckedIndexedAccess": true,
@@ -43,7 +34,5 @@
     "test/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }

@@ -61,5 +61,4 @@
     @apply bg-background text-foreground;
     background-image: radial-gradient(circle at top, oklch(0.27 0.04 310), var(--background) 45%);
   }
-
 }

@@ -11,6 +11,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
     const image = await findActiveImageByCode(env, code);
     if (image) return unlockTarget(request, env, "image", image);
     const album = await findActiveAlbumByCode(env, code);
-    return album ? unlockTarget(request, env, "album", album.album) : new Response(null, { status: 404 });
+    return album
+      ? unlockTarget(request, env, "album", album.album)
+      : new Response(null, { status: 404 });
   });
 }

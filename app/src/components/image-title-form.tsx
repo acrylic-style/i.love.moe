@@ -6,10 +6,18 @@ import { CheckIcon, LoaderCircleIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useI18n } from "@/i18n/client";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
-export function ImageTitleForm({ imageId, initialTitle }: { imageId: string; initialTitle: string | null }) {
+export function ImageTitleForm({
+  imageId,
+  initialTitle,
+}: {
+  imageId: string;
+  initialTitle: string | null;
+}) {
+  const { t } = useI18n();
   const router = useRouter();
   const [state, setState] = useState<SaveState>("idle");
 
@@ -39,17 +47,39 @@ export function ImageTitleForm({ imageId, initialTitle }: { imageId: string; ini
 
   const saving = state === "saving";
   return (
-    <form className="space-y-2" method="post" action={`/manage/images/${imageId}/title`} onSubmit={submit}>
-      <Label htmlFor={`title-${imageId}`}>画像タイトル</Label>
+    <form
+      className="space-y-2"
+      method="post"
+      action={`/manage/images/${imageId}/title`}
+      onSubmit={submit}
+    >
+      <Label htmlFor={`title-${imageId}`}>{t("image.titleLabel")}</Label>
       <div className="flex gap-2">
-        <Input id={`title-${imageId}`} name="title" defaultValue={initialTitle ?? ""} maxLength={100} placeholder="タイトルなし" disabled={saving} />
+        <Input
+          id={`title-${imageId}`}
+          name="title"
+          defaultValue={initialTitle ?? ""}
+          maxLength={100}
+          placeholder={t("common.untitled")}
+          disabled={saving}
+        />
         <Button className="w-36" type="submit" disabled={saving} aria-disabled={saving}>
-          {state === "saving" && <LoaderCircleIcon className="size-4 animate-spin" aria-hidden="true" />}
+          {state === "saving" && (
+            <LoaderCircleIcon className="size-4 animate-spin" aria-hidden="true" />
+          )}
           {state === "saved" && <CheckIcon className="size-4" aria-hidden="true" />}
-          {state === "saving" ? "保存中" : state === "saved" ? "保存しました" : "保存"}
+          {state === "saving"
+            ? t("common.saving")
+            : state === "saved"
+              ? t("common.saved")
+              : t("common.save")}
         </Button>
       </div>
-      {state === "error" && <p className="text-sm text-destructive" role="alert">保存できませんでした。もう一度試してください。</p>}
+      {state === "error" && (
+        <p className="text-sm text-destructive" role="alert">
+          {t("image.titleSaveError")}
+        </p>
+      )}
     </form>
   );
 }

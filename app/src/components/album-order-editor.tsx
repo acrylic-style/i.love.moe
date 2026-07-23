@@ -3,10 +3,22 @@
 import { useState } from "react";
 import { GripVerticalIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/i18n/client";
 
-interface OrderImage { id: string; title: string | null; code: string }
+interface OrderImage {
+  id: string;
+  title: string | null;
+  code: string;
+}
 
-export function AlbumOrderEditor({ albumId, initialImages }: { albumId: string; initialImages: OrderImage[] }) {
+export function AlbumOrderEditor({
+  albumId,
+  initialImages,
+}: {
+  albumId: string;
+  initialImages: OrderImage[];
+}) {
+  const { t } = useI18n();
   const [images, setImages] = useState(initialImages);
   const [status, setStatus] = useState<string>();
   const [draggedId, setDraggedId] = useState<string>();
@@ -33,24 +45,71 @@ export function AlbumOrderEditor({ albumId, initialImages }: { albumId: string; 
   }
 
   async function save() {
-    setStatus("保存中…");
+    setStatus(t("album.orderSaving"));
     const response = await fetch(`/manage/albums/${albumId}/order`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ imageIds: images.map((image) => image.id) }),
     });
-    if (response.ok) setStatus("保存しました。");
-    else if (response.status === 409) setStatus("内容が変更されています。ページを再読み込みしてください。");
-    else setStatus("保存できませんでした。");
+    if (response.ok) setStatus(t("album.orderSaved"));
+    else if (response.status === 409) setStatus(t("album.orderConflict"));
+    else setStatus(t("album.orderError"));
   }
 
   if (images.length < 2) return null;
-  return <section className="space-y-4 border-t pt-8"><div><h2 className="text-2xl font-semibold">表示順</h2><p className="text-muted-foreground">ドラッグ、または上下ボタンで並べ替えられます。</p></div>
-    <ol className="grid gap-2">{images.map((image, index) => <li className="flex items-center gap-3 rounded-lg border bg-card p-3" key={image.id} draggable
-      onDragStart={() => setDraggedId(image.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => drop(image.id)}>
-      <GripVerticalIcon className="size-4 cursor-grab text-muted-foreground" /><span>{image.title ?? image.code}</span>
-      <span className="ml-auto flex gap-1"><Button variant="outline" size="icon" type="button" onClick={() => move(index, -1)} disabled={index === 0} aria-label="上へ移動">↑</Button><Button variant="outline" size="icon" type="button" onClick={() => move(index, 1)} disabled={index === images.length - 1} aria-label="下へ移動">↓</Button></span>
-    </li>)}</ol>
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center"><Button type="button" onClick={save}>並び順を保存</Button>{status && <span className="text-sm text-muted-foreground" aria-live="polite">{status}</span>}</div>
-  </section>;
+  return (
+    <section className="space-y-4 border-t pt-8">
+      <div>
+        <h2 className="text-2xl font-semibold">{t("album.orderTitle")}</h2>
+        <p className="text-muted-foreground">{t("album.orderDescription")}</p>
+      </div>
+      <ol className="grid gap-2">
+        {images.map((image, index) => (
+          <li
+            className="flex items-center gap-3 rounded-lg border bg-card p-3"
+            key={image.id}
+            draggable
+            onDragStart={() => setDraggedId(image.id)}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={() => drop(image.id)}
+          >
+            <GripVerticalIcon className="size-4 cursor-grab text-muted-foreground" />
+            <span>{image.title ?? image.code}</span>
+            <span className="ml-auto flex gap-1">
+              <Button
+                variant="outline"
+                size="icon"
+                type="button"
+                onClick={() => move(index, -1)}
+                disabled={index === 0}
+                aria-label={t("album.orderUp")}
+              >
+                ↑
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                type="button"
+                onClick={() => move(index, 1)}
+                disabled={index === images.length - 1}
+                aria-label={t("album.orderDown")}
+              >
+                ↓
+              </Button>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Button type="button" onClick={save}>
+          {t("album.orderSave")}
+        </Button>
+        {status && (
+          <span className="text-sm text-muted-foreground" aria-live="polite">
+            {status}
+          </span>
+        )}
+      </div>
+    </section>
+  );
 }

@@ -44,4 +44,3 @@ export function inspectPng(bytes: Uint8Array): PngInfo | null {
 
   return null;
 }
-

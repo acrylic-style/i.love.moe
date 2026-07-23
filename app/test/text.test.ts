@@ -27,7 +27,9 @@ describe("decodeMetadataHeader", () => {
 
   it("decodes UTF-8 Base64URL metadata", () => {
     expect(decodeMetadataHeader(encode("アジ鯖 Life"), 100)).toBe("アジ鯖 Life");
-    expect(decodeMetadataHeader(encode("play.example.com:25565"), 255)).toBe("play.example.com:25565");
+    expect(decodeMetadataHeader(encode("play.example.com:25565"), 255)).toBe(
+      "play.example.com:25565",
+    );
   });
 
   it("accepts omitted metadata", () => {

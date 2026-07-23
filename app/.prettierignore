@@ -1,0 +1,11 @@
+node_modules
+.next
+.open-next
+.wrangler
+coverage
+dist
+migrations
+package-lock.json
+cloudflare-env.d.ts
+next-env.d.ts
+tsconfig.tsbuildinfo

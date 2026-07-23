@@ -7,24 +7,20 @@
     {
       "binding": "DB",
       "database_name": "i-love-moe",
-      "database_id": "cd629907-42fd-4706-b086-6b56abb84aee"
-    }
+      "database_id": "cd629907-42fd-4706-b086-6b56abb84aee",
+    },
   ],
   "r2_buckets": [
     {
       "binding": "IMAGES",
-      "bucket_name": "ilovemoe"
-    }
+      "bucket_name": "ilovemoe",
+    },
   ],
   "queues": {
-    "producers": [
-      { "binding": "RETENTION_QUEUE", "queue": "i-love-moe-retention" }
-    ],
-    "consumers": [
-      { "queue": "i-love-moe-retention", "max_batch_size": 10, "max_retries": 5 }
-    ]
+    "producers": [{ "binding": "RETENTION_QUEUE", "queue": "i-love-moe-retention" }],
+    "consumers": [{ "queue": "i-love-moe-retention", "max_batch_size": 10, "max_retries": 5 }],
   },
   "triggers": {
-    "crons": ["*/5 * * * *"]
-  }
+    "crons": ["*/5 * * * *"],
+  },
 }
