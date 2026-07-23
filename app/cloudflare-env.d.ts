@@ -7,6 +7,7 @@ declare global {
     EMAIL: EmailBinding;
     ASSETS: Fetcher;
     PUBLIC_BASE_URL: string;
+    MINECRAFT_PUBLIC_BASE_URL: string;
     EMAIL_FROM: string;
     RATE_LIMIT_SALT: string;
     RETENTION_QUEUE: Queue<import("./src/types").RetentionMessage>;

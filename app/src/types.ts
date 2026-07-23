@@ -13,6 +13,7 @@ export interface Env {
   IMAGES: R2Bucket;
   EMAIL: EmailBinding;
   PUBLIC_BASE_URL: string;
+  MINECRAFT_PUBLIC_BASE_URL: string;
   EMAIL_FROM: string;
   RATE_LIMIT_SALT: string;
   ASSETS: Fetcher;

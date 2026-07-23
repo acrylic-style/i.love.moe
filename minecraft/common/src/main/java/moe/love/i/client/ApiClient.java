@@ -188,7 +188,12 @@ final class ApiClient {
     static final class UploadResult {
         String id;
         String url;
+        String minecraftUrl;
         String expiresAt;
+
+        String displayUrl() {
+            return minecraftUrl == null || minecraftUrl.isBlank() ? url : minecraftUrl;
+        }
     }
 
     static final class AccountResult {

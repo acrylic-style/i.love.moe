@@ -176,7 +176,11 @@ export async function uploadImage(request: Request, env: CloudflareEnv): Promise
     throw error;
   }
   return json(
-    { id, url: `${publicBaseUrl(env)}/${code}`, expiresAt: new Date(expiresAt).toISOString() },
+    {
+      id,
+      ...buildUploadUrls(env.PUBLIC_BASE_URL, env.MINECRAFT_PUBLIC_BASE_URL, code),
+      expiresAt: new Date(expiresAt).toISOString(),
+    },
     201,
   );
 }
@@ -660,6 +664,17 @@ function redirectWithError(path: string, error: string): Response {
 
 function publicBaseUrl(env: CloudflareEnv): string {
   return env.PUBLIC_BASE_URL.replace(/\/$/, "");
+}
+
+export function buildUploadUrls(
+  publicBaseUrlValue: string,
+  minecraftPublicBaseUrlValue: string,
+  code: string,
+): { url: string; minecraftUrl: string } {
+  return {
+    url: `${publicBaseUrlValue.replace(/\/$/, "")}/${code}`,
+    minecraftUrl: `${minecraftPublicBaseUrlValue.replace(/\/$/, "")}/${code}`,
+  };
 }
 
 function cookieValue(request: Request, name: string): string | null {

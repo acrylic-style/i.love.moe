@@ -98,14 +98,15 @@ public final class ILoveMoeClient implements ClientModInitializer {
                 return;
             }
             MinecraftClient client = MinecraftClient.getInstance();
-            client.keyboard.setClipboard(result.url);
+            String displayUrl = result.displayUrl();
+            client.keyboard.setClipboard(displayUrl);
 
             MutableText open = Text.translatable("message.i_love_moe.action.open").styled(style -> style.withColor(Formatting.AQUA)
-                    .withClickEvent(new ClickEvent.OpenUrl(UriUtil.toHttpUri(result.url))));
+                    .withClickEvent(new ClickEvent.OpenUrl(UriUtil.toHttpUri(displayUrl))));
             MutableText insert = Text.translatable("message.i_love_moe.action.insert").styled(style -> style.withColor(Formatting.GREEN)
-                    .withClickEvent(new ClickEvent.SuggestCommand(result.url)));
+                    .withClickEvent(new ClickEvent.SuggestCommand(displayUrl)));
             MutableText copy = Text.translatable("message.i_love_moe.action.copy").styled(style -> style.withColor(Formatting.YELLOW)
-                    .withClickEvent(new ClickEvent.CopyToClipboard(result.url)));
+                    .withClickEvent(new ClickEvent.CopyToClipboard(displayUrl)));
             MutableText delete = Text.translatable("message.i_love_moe.action.delete").styled(style -> style.withColor(Formatting.RED)
                     .withClickEvent(new ClickEvent.RunCommand("/ilovemoe delete " + result.id)));
             sendMessage(Text.translatable("message.i_love_moe.upload.success", open, insert, copy, delete));
