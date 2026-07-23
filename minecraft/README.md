@@ -1,16 +1,40 @@
 # i.らぶ.moe Fabric Mod
 
-Fabric 1.21.11向けクライアントModです。F2でPNGの保存が成功した直後をMixinで捕捉し、クリック可能なアップロード操作をチャットへ追加します。
+Fabric 1.21.11、26.1.2、26.2向けクライアントModです。F2でPNGの保存が成功した直後をMixinで捕捉し、クリック可能なアップロード操作をチャットへ追加します。
 
 Plus利用者は`/ilovemoe auto-upload on`で、F2撮影後の自動アップロードを有効にできます。無料プランでは従来どおりチャットのボタンから手動でアップロードできます。
 
 マルチプレイ中に撮影した画像には、サーバー一覧の名前と接続先アドレスをメタデータとして添付します。この情報は画像の共有ページとアルバムにも表示されます。シングルプレイと古い画像では表示されません。
 
+ゲーム内の表示は英語（`en_us`）と日本語（`ja_jp`）に対応し、Minecraftの言語設定に合わせて切り替わります。
+
+## 対応バージョン
+
+| Minecraft | Java | Gradleモジュール | 成果物 |
+| --- | --- | --- | --- |
+| 1.21.11 | 21 | `:versions:mc1_21_11` | `i-love-moe-mc1.21.11-<version>.jar` |
+| 26.1.2 | 25 | `:versions:mc26_1_2` | `i-love-moe-mc26.1.2-<version>.jar` |
+| 26.2 | 25 | `:versions:mc26_2` | `i-love-moe-mc26.2-<version>.jar` |
+
+HTTP通信、端末認証、設定保存、メタデータのエンコードは`common`に置いています。Minecraft APIへ触れるコードは`versions`配下に分離しています。26系で共通のコードは`versions/mc26`、スクリーンショットMixinとHUD差分は各バージョンのモジュールにあります。
+
 ## 開発
+
+3バージョンをまとめてビルドします。
 
 ```powershell
 .\gradlew.bat build
 ```
+
+個別にビルドする場合は、対象モジュールを指定します。
+
+```powershell
+.\gradlew.bat :versions:mc1_21_11:build
+.\gradlew.bat :versions:mc26_1_2:build
+.\gradlew.bat :versions:mc26_2:build
+```
+
+JARは各モジュールの`build/libs`に生成されます。Java 25がローカルにない場合は、Gradle Toolchainsが対応JDKを自動取得します。
 
 初回起動時に `config/i-love-moe.json` を作成します。既定APIは `https://i.らぶ.moe` です。ローカル開発時は設定内の `apiBaseUrl` を変更してください。
 

@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "moe.love.i.mixin.client",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "ScreenshotMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
