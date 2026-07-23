@@ -39,7 +39,7 @@ export default async function TermsPage() {
             ModからMinecraftのスクリーンショットをアップロードし、短縮URLで閲覧・共有する機能を提供します。
           </li>
           <li>
-            ログインした利用者は、画像タイトル、Minecraftサーバー名・アドレス、アルバム、公開範囲などを管理できます。
+            ログインした利用者は、画像タイトル、Minecraftサーバー名・アドレス、アルバム、タグ、お気に入り、公開範囲などを管理できます。
           </li>
           <li>
             公開範囲には、URL限定公開、非公開、合言葉付き公開があります。URL限定公開は検索一覧への掲載を意図しない方式ですが、URLを知る人の閲覧を技術的に制限するものではありません。
@@ -229,7 +229,7 @@ function EnglishTerms() {
           </li>
           <li>
             Signed-in users can manage image titles, Minecraft server names and addresses, albums,
-            visibility, and related settings.
+            tags, favorites, visibility, and related settings.
           </li>
           <li>
             Visibility options include anyone with the URL, private, and passphrase-protected.

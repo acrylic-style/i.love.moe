@@ -28,6 +28,7 @@ export default async function PlusPage({
     t("plus.feature.retention"),
     t("plus.feature.albums"),
     t("plus.feature.visibility"),
+    t("plus.feature.library"),
     t("plus.feature.migration"),
   ];
   const env = getEnv();

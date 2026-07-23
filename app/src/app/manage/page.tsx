@@ -40,7 +40,7 @@ export default async function ManagePage({
     );
   }
   const [images, albums, subscription, limits, usage, migration] = await Promise.all([
-    managedImages(env, session.user_id),
+    managedImages(env, session.user_id, 6),
     managedAlbums(env, session.user_id),
     subscriptionSummary(env, session.user_id),
     planLimits(env, session.user_id),
@@ -194,9 +194,14 @@ export default async function ManagePage({
       </section>
 
       <section className="space-y-5">
-        <div>
-          <h2 className="text-2xl font-semibold">{t("manage.images")}</h2>
-          <p className="text-muted-foreground">{t("manage.imagesDescription")}</p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold">{t("manage.recentImages")}</h2>
+            <p className="text-muted-foreground">{t("manage.recentImagesDescription")}</p>
+          </div>
+          <a className={buttonVariants({ variant: "outline" })} href="/manage/images">
+            {t("manage.openLibrary")}
+          </a>
         </div>
         {images.length === 0 ? (
           <p className="text-muted-foreground">{t("manage.noImages")}</p>

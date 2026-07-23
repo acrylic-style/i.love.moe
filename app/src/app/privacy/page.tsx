@@ -29,7 +29,7 @@ export default async function PrivacyPage() {
           </li>
           <li>
             <span className="text-foreground">投稿データ：</span>
-            スクリーンショット、画像タイトル、画像サイズ・寸法、アルバム名・説明・並び順、公開範囲、Minecraftサーバー名・アドレス、短縮URL、保存期限
+            スクリーンショット、画像タイトル、画像サイズ・寸法、アルバム名・説明・並び順、タグ、お気に入り、公開範囲、Minecraftサーバー名・アドレス、短縮URL、保存期限
           </li>
           <li>
             <span className="text-foreground">保護設定：</span>
@@ -192,8 +192,8 @@ function EnglishPrivacy() {
           <li>
             <span className="text-foreground">Uploaded data: </span>
             Screenshots, image titles, file sizes and dimensions, album names and descriptions,
-            display order, visibility, Minecraft server names and addresses, short URLs, and
-            expiration dates.
+            display order, tags, favorites, visibility, Minecraft server names and addresses, short
+            URLs, and expiration dates.
           </li>
           <li>
             <span className="text-foreground">Protection settings: </span>

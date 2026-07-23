@@ -9,6 +9,7 @@ describe("plan limits", () => {
       albums: 1,
       imagesPerAlbum: 20,
       protectedSharing: false,
+      libraryOrganization: false,
     });
   });
 
@@ -19,6 +20,7 @@ describe("plan limits", () => {
       albums: 100,
       imagesPerAlbum: 200,
       protectedSharing: true,
+      libraryOrganization: true,
     });
   });
 

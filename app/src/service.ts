@@ -467,16 +467,21 @@ export async function authenticateSessionToken(
     .first<SessionRow>();
 }
 
-export async function managedImages(env: CloudflareEnv, userId: string): Promise<ImageRow[]> {
+export async function managedImages(
+  env: CloudflareEnv,
+  userId: string,
+  limit = 100,
+): Promise<ImageRow[]> {
+  const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
   const rows = await env.DB.prepare(
     `SELECT i.id, i.title, i.server_address, i.server_name, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
       i.expires_at, i.deleted_at, i.visibility, i.access_version,
       (i.passphrase_hash IS NOT NULL) AS has_passphrase, i.storage_tier, s.code
     FROM images i JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id
     WHERE i.owner_user_id = ? AND i.deleted_at IS NULL AND i.expires_at > ?
-    ORDER BY i.created_at DESC LIMIT 100`,
+    ORDER BY i.created_at DESC LIMIT ?`,
   )
-    .bind(userId, Date.now())
+    .bind(userId, Date.now(), safeLimit)
     .all<ImageRow>();
   return rows.results;
 }

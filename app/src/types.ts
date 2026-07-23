@@ -59,6 +59,35 @@ export interface ImageRow {
   access_version: number;
   has_passphrase?: number;
   storage_tier: "free" | "plus";
+  favorited_at?: number | null;
+}
+
+export const TAG_COLORS = [
+  "gray",
+  "red",
+  "orange",
+  "yellow",
+  "green",
+  "blue",
+  "purple",
+  "pink",
+] as const;
+
+export type TagColor = (typeof TAG_COLORS)[number];
+
+export interface TagRow {
+  id: string;
+  owner_user_id: string;
+  name: string;
+  normalized_name: string;
+  color: TagColor;
+  created_at: number;
+  updated_at: number;
+  image_count?: number;
+}
+
+export interface LibraryImageRow extends ImageRow {
+  tags: TagRow[];
 }
 
 export interface AlbumRow {

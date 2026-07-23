@@ -9,6 +9,7 @@ export interface PlanLimits {
   albums: number;
   imagesPerAlbum: number;
   protectedSharing: boolean;
+  libraryOrganization: boolean;
 }
 
 export const FREE_PLAN: PlanLimits = {
@@ -18,6 +19,7 @@ export const FREE_PLAN: PlanLimits = {
   albums: 1,
   imagesPerAlbum: 20,
   protectedSharing: false,
+  libraryOrganization: false,
 };
 
 export const PLUS_PLAN: PlanLimits = {
@@ -27,6 +29,7 @@ export const PLUS_PLAN: PlanLimits = {
   albums: 100,
   imagesPerAlbum: 200,
   protectedSharing: true,
+  libraryOrganization: true,
 };
 
 export interface SubscriptionSummary {
