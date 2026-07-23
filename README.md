@@ -37,14 +37,14 @@ Free users can upload screenshots manually. Plus users can enable automatic uplo
 ## Commands
 
 ```text
-/ilovemoe login <email>
+/ilovemoe login
 /ilovemoe auto-upload
 /ilovemoe auto-upload on
 /ilovemoe auto-upload off
 ```
 
-The login command sends a magic link that lets you manage your screenshots from the web
-dashboard.
+The login command opens a Turnstile-protected email form. The magic link sent from that form
+lets you manage your screenshots from the web dashboard.
 
 ## Plans
 

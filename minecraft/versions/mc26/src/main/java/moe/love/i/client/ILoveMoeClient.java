@@ -37,9 +37,7 @@ public final class ILoveMoeClient implements ClientModInitializer {
                         .then(ClientCommands.literal("delete")
                                 .then(ClientCommands.argument("id", StringArgumentType.word())
                                         .executes(context -> delete(StringArgumentType.getString(context, "id")))))
-                        .then(ClientCommands.literal("login")
-                                .then(ClientCommands.argument("email", StringArgumentType.greedyString())
-                                        .executes(context -> login(StringArgumentType.getString(context, "email")))))
+                        .then(ClientCommands.literal("login").executes(context -> login()))
                         .then(ClientCommands.literal("auto-upload")
                                 .executes(context -> showAutoUploadStatus())
                                 .then(ClientCommands.literal("on").executes(context -> setAutoUpload(true)))
@@ -155,10 +153,18 @@ public final class ILoveMoeClient implements ClientModInitializer {
         return 1;
     }
 
-    private static int login(String email) {
-        api.sendMagicLink(email.trim()).whenComplete((ignored, error) -> Minecraft.getInstance().execute(() -> {
-            if (error != null) sendError(apiError(error));
-            else sendMessage(Component.translatable("message.i_love_moe.login.email_sent").withStyle(ChatFormatting.GREEN));
+    private static int login() {
+        api.createBrowserLogin().whenComplete((result, error) -> Minecraft.getInstance().execute(() -> {
+            if (error != null) {
+                sendError(apiError(error));
+                return;
+            }
+            Minecraft.getInstance().keyboardHandler.setClipboard(result.url);
+            MutableComponent open = Component.translatable("message.i_love_moe.action.open").withStyle(style -> style
+                    .withColor(ChatFormatting.AQUA)
+                    .withUnderlined(true)
+                    .withClickEvent(new ClickEvent.OpenUrl(UriUtil.toHttpUri(result.url))));
+            sendMessage(Component.translatable("message.i_love_moe.login.form_ready", open).withStyle(ChatFormatting.GREEN));
         }));
         return 1;
     }

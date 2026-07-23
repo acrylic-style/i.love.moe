@@ -13,7 +13,13 @@
     "LEGAL_NOTICE_URL": "https://gist.github.com/acrylic-style/002d58b4416b55d36c965cfd6d81e1c2",
   },
   "secrets": {
-    "required": ["RATE_LIMIT_SALT", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"],
+    "required": [
+      "RATE_LIMIT_SALT",
+      "TURNSTILE_SITE_KEY",
+      "TURNSTILE_SECRET_KEY",
+      "STRIPE_SECRET_KEY",
+      "STRIPE_WEBHOOK_SECRET",
+    ],
   },
   "routes": [
     {

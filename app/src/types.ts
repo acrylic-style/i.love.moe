@@ -16,6 +16,8 @@ export interface Env {
   MINECRAFT_PUBLIC_BASE_URL: string;
   EMAIL_FROM: string;
   RATE_LIMIT_SALT: string;
+  TURNSTILE_SITE_KEY: string;
+  TURNSTILE_SECRET_KEY: string;
   ASSETS: Fetcher;
   RETENTION_QUEUE: Queue<RetentionMessage>;
   STRIPE_SECRET_KEY: string;
@@ -125,6 +127,13 @@ export interface MagicLinkRow {
   id: string;
   device_id: string;
   email: string;
+  expires_at: number;
+  used_at: number | null;
+}
+
+export interface BrowserLoginChallengeRow {
+  id: string;
+  device_id: string;
   expires_at: number;
   used_at: number | null;
 }

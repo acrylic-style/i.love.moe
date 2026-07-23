@@ -37,9 +37,7 @@ public final class ILoveMoeClient implements ClientModInitializer {
                         .then(ClientCommandManager.literal("delete")
                                 .then(ClientCommandManager.argument("id", StringArgumentType.word())
                                         .executes(context -> delete(StringArgumentType.getString(context, "id")))))
-                        .then(ClientCommandManager.literal("login")
-                                .then(ClientCommandManager.argument("email", StringArgumentType.greedyString())
-                                        .executes(context -> login(StringArgumentType.getString(context, "email")))))
+                        .then(ClientCommandManager.literal("login").executes(context -> login()))
                         .then(ClientCommandManager.literal("auto-upload")
                                 .executes(context -> showAutoUploadStatus())
                                 .then(ClientCommandManager.literal("on").executes(context -> setAutoUpload(true)))
@@ -155,10 +153,18 @@ public final class ILoveMoeClient implements ClientModInitializer {
         return 1;
     }
 
-    private static int login(String email) {
-        api.sendMagicLink(email.trim()).whenComplete((ignored, error) -> MinecraftClient.getInstance().execute(() -> {
-            if (error != null) sendError(apiError(error));
-            else sendMessage(Text.translatable("message.i_love_moe.login.email_sent").formatted(Formatting.GREEN));
+    private static int login() {
+        api.createBrowserLogin().whenComplete((result, error) -> MinecraftClient.getInstance().execute(() -> {
+            if (error != null) {
+                sendError(apiError(error));
+                return;
+            }
+            MinecraftClient.getInstance().keyboard.setClipboard(result.url);
+            MutableText open = Text.translatable("message.i_love_moe.action.open").styled(style -> style
+                    .withColor(Formatting.AQUA)
+                    .withUnderline(true)
+                    .withClickEvent(new ClickEvent.OpenUrl(UriUtil.toHttpUri(result.url))));
+            sendMessage(Text.translatable("message.i_love_moe.login.form_ready", open).formatted(Formatting.GREEN));
         }));
         return 1;
     }

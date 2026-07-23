@@ -8,7 +8,14 @@ import {
   validPassphrase,
 } from "./access";
 import { inspectPng, MAX_IMAGE_BYTES } from "./png";
-import type { DeviceRow, ImageLookupRow, ImageRow, MagicLinkRow, SessionRow } from "./types";
+import type {
+  BrowserLoginChallengeRow,
+  DeviceRow,
+  ImageLookupRow,
+  ImageRow,
+  MagicLinkRow,
+  SessionRow,
+} from "./types";
 import { planLimits } from "./plans";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -16,6 +23,12 @@ const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
 const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 const DEVICE_REGISTRATION_WINDOW_MS = 24 * 60 * 60 * 1000;
 const DEVICE_REGISTRATION_LIMIT = 3;
+const BROWSER_LOGIN_LIFETIME_MS = 10 * 60 * 1000;
+const BROWSER_LOGIN_LIMIT = 5;
+const MAGIC_LINK_DEVICE_WINDOW_MS = 10 * 60 * 1000;
+const MAGIC_LINK_DEVICE_LIMIT = 3;
+const MAGIC_LINK_EMAIL_WINDOW_MS = 60 * 60 * 1000;
+const MAGIC_LINK_EMAIL_LIMIT = 3;
 export const SHORT_CODE_PATTERN = /^[0-9A-Za-z]{8}$/;
 
 export async function withApiErrors(operation: () => Promise<Response>): Promise<Response> {
@@ -213,34 +226,137 @@ export async function deleteImage(
   return new Response(null, { status: 204 });
 }
 
-export async function requestMagicLink(request: Request, env: CloudflareEnv): Promise<Response> {
+export async function createBrowserLogin(request: Request, env: CloudflareEnv): Promise<Response> {
   const device = await authenticateDevice(request, env);
   if (!device) return apiError("unauthorized", 401);
-  const data = await readJson<{ email?: unknown }>(request);
-  const email = typeof data?.email === "string" ? data.email.trim().toLowerCase() : "";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254)
-    return apiError("invalid_email", 400);
 
   const now = Date.now();
-  const recent = await env.DB.prepare(
+  await env.DB.prepare("DELETE FROM browser_login_challenges WHERE expires_at <= ?")
+    .bind(now)
+    .run();
+  const token = randomToken();
+  const inserted = await env.DB.prepare(
+    `INSERT INTO browser_login_challenges
+      (id, token_hash, device_id, created_at, expires_at)
+      SELECT ?, ?, ?, ?, ?
+      WHERE (
+        SELECT COUNT(*) FROM browser_login_challenges
+        WHERE device_id = ? AND created_at >= ?
+      ) < ?`,
+  )
+    .bind(
+      crypto.randomUUID(),
+      await sha256(token),
+      device.id,
+      now,
+      now + BROWSER_LOGIN_LIFETIME_MS,
+      device.id,
+      now - BROWSER_LOGIN_LIFETIME_MS,
+      BROWSER_LOGIN_LIMIT,
+    )
+    .run();
+  if ((inserted.meta.changes ?? 0) !== 1) return apiError("too_many_requests", 429);
+
+  return json(
+    {
+      url: `${env.MINECRAFT_PUBLIC_BASE_URL.replace(/\/$/, "")}/login/${token}`,
+      expiresAt: new Date(now + BROWSER_LOGIN_LIFETIME_MS).toISOString(),
+    },
+    201,
+  );
+}
+
+export async function browserLoginChallengeAvailable(
+  token: string,
+  env: CloudflareEnv,
+): Promise<boolean> {
+  if (!validBrowserLoginToken(token)) return false;
+  const challenge = await findBrowserLoginChallenge(token, env);
+  return Boolean(challenge && challenge.used_at === null && challenge.expires_at > Date.now());
+}
+
+export async function submitBrowserLogin(request: Request, env: CloudflareEnv): Promise<Response> {
+  const form = await request.formData();
+  const token = typeof form.get("token") === "string" ? String(form.get("token")) : "";
+  const returnPath = validBrowserLoginToken(token) ? `/login/${encodeURIComponent(token)}` : "/";
+  if (!sameOrigin(request)) return redirectLogin(returnPath, "invalid_request");
+
+  const emailValue = form.get("email");
+  const email = typeof emailValue === "string" ? emailValue.trim().toLowerCase() : "";
+  if (!validEmail(email)) return redirectLogin(returnPath, "invalid_email");
+  if (!env.RATE_LIMIT_SALT || env.RATE_LIMIT_SALT.length < 32) {
+    console.error("RATE_LIMIT_SALT is missing or too short");
+    return redirectLogin(returnPath, "unavailable");
+  }
+
+  const turnstileValue = form.get("cf-turnstile-response");
+  const turnstileToken = typeof turnstileValue === "string" ? turnstileValue : "";
+  if (!(await verifyTurnstile(request, env, turnstileToken))) {
+    return redirectLogin(returnPath, "turnstile_failed");
+  }
+
+  const challenge = await findBrowserLoginChallenge(token, env);
+  const now = Date.now();
+  if (!challenge || challenge.used_at !== null || challenge.expires_at <= now) {
+    return redirectLogin(returnPath, "invalid_challenge");
+  }
+  const consumed = await env.DB.prepare(
+    `UPDATE browser_login_challenges SET used_at = ?
+      WHERE id = ? AND used_at IS NULL AND expires_at > ?`,
+  )
+    .bind(now, challenge.id, now)
+    .run();
+  if ((consumed.meta.changes ?? 0) !== 1) {
+    return redirectLogin(returnPath, "invalid_challenge");
+  }
+
+  const recentDeviceLinks = await env.DB.prepare(
     "SELECT COUNT(*) AS count FROM magic_link_tokens WHERE device_id = ? AND created_at >= ?",
   )
-    .bind(device.id, now - 10 * 60 * 1000)
+    .bind(challenge.device_id, now - MAGIC_LINK_DEVICE_WINDOW_MS)
     .first<{ count: number }>();
-  if ((recent?.count ?? 0) >= 3) return apiError("too_many_requests", 429);
+  if ((recentDeviceLinks?.count ?? 0) >= MAGIC_LINK_DEVICE_LIMIT) {
+    return redirectLogin(returnPath, "sent");
+  }
 
-  const id = crypto.randomUUID();
-  const token = randomToken();
-  const expiresAt = now + FIFTEEN_MINUTES_MS;
-  await env.DB.prepare(
-    `INSERT INTO magic_link_tokens
-    (id, token_hash, device_id, email, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)`,
-  )
-    .bind(id, await sha256(token), device.id, email, now, expiresAt)
+  const attemptId = crypto.randomUUID();
+  const emailHash = await hmacSha256(env.RATE_LIMIT_SALT, email);
+  await env.DB.prepare("DELETE FROM magic_link_email_attempts WHERE created_at < ?")
+    .bind(now - MAGIC_LINK_EMAIL_WINDOW_MS)
     .run();
+  const emailAttempt = await env.DB.prepare(
+    `INSERT INTO magic_link_email_attempts (id, email_hash, created_at)
+      SELECT ?, ?, ?
+      WHERE (
+        SELECT COUNT(*) FROM magic_link_email_attempts
+        WHERE email_hash = ? AND created_at >= ?
+      ) < ?`,
+  )
+    .bind(
+      attemptId,
+      emailHash,
+      now,
+      emailHash,
+      now - MAGIC_LINK_EMAIL_WINDOW_MS,
+      MAGIC_LINK_EMAIL_LIMIT,
+    )
+    .run();
+  if ((emailAttempt.meta.changes ?? 0) !== 1) {
+    return redirectLogin(returnPath, "sent");
+  }
 
-  const link = `${publicBaseUrl(env)}/auth/verify?token=${encodeURIComponent(token)}`;
+  const magicLinkId = crypto.randomUUID();
+  const magicLinkToken = randomToken();
+  const expiresAt = now + FIFTEEN_MINUTES_MS;
+  const link = `${publicBaseUrl(env)}/auth/verify?token=${encodeURIComponent(magicLinkToken)}`;
   try {
+    await env.DB.prepare(
+      `INSERT INTO magic_link_tokens
+        (id, token_hash, device_id, email, created_at, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+      .bind(magicLinkId, await sha256(magicLinkToken), challenge.device_id, email, now, expiresAt)
+      .run();
     await env.EMAIL.send({
       to: email,
       from: env.EMAIL_FROM,
@@ -249,11 +365,21 @@ export async function requestMagicLink(request: Request, env: CloudflareEnv): Pr
       html: `<div lang="en"><p>Open the link below within 15 minutes.</p><p><a href="${link}">Log in to i.らぶ.moe</a></p><p>If you did not request this email, you can safely ignore it.</p></div><hr><div lang="ja"><p>次のリンクを15分以内に開いてください。</p><p><a href="${link}">i.らぶ.moeへログイン</a></p><p>心当たりがない場合は、このメールを破棄してください。</p></div>`,
     });
   } catch (error) {
-    await env.DB.prepare("DELETE FROM magic_link_tokens WHERE id = ?").bind(id).run();
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM magic_link_tokens WHERE id = ?").bind(magicLinkId),
+      env.DB.prepare("DELETE FROM magic_link_email_attempts WHERE id = ?").bind(attemptId),
+      env.DB.prepare(
+        "UPDATE browser_login_challenges SET used_at = NULL WHERE id = ? AND used_at = ?",
+      ).bind(challenge.id, now),
+    ]);
     console.error("email_send_failed", error instanceof Error ? error.message : "unknown");
-    return apiError("email_unavailable", 503);
+    return redirectLogin(returnPath, "unavailable");
   }
-  return json({ accepted: true }, 202);
+  return redirectLogin(returnPath, "sent");
+}
+
+export async function requestMagicLink(_request: Request, _env: CloudflareEnv): Promise<Response> {
+  return apiError("browser_login_required", 410);
 }
 
 export async function verifyMagicLink(url: URL, env: CloudflareEnv): Promise<Response> {
@@ -666,6 +792,93 @@ function publicBaseUrl(env: CloudflareEnv): string {
   return env.PUBLIC_BASE_URL.replace(/\/$/, "");
 }
 
+function validBrowserLoginToken(token: string): boolean {
+  return /^[0-9A-Za-z_-]{43}$/.test(token);
+}
+
+function validEmail(email: string): boolean {
+  return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+async function findBrowserLoginChallenge(
+  token: string,
+  env: CloudflareEnv,
+): Promise<BrowserLoginChallengeRow | null> {
+  if (!validBrowserLoginToken(token)) return null;
+  return env.DB.prepare(
+    `SELECT id, device_id, expires_at, used_at
+      FROM browser_login_challenges WHERE token_hash = ?`,
+  )
+    .bind(await sha256(token))
+    .first<BrowserLoginChallengeRow>();
+}
+
+async function verifyTurnstile(
+  request: Request,
+  env: CloudflareEnv,
+  token: string,
+): Promise<boolean> {
+  if (!env.TURNSTILE_SECRET_KEY || !token || token.length > 2048) return false;
+  const body = new URLSearchParams({
+    secret: env.TURNSTILE_SECRET_KEY,
+    response: token,
+    idempotency_key: crypto.randomUUID(),
+  });
+  const clientIp = request.headers.get("cf-connecting-ip")?.trim();
+  if (clientIp) body.set("remoteip", clientIp);
+
+  try {
+    const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      body,
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) return false;
+    const result = (await response.json()) as {
+      success?: boolean;
+      hostname?: string;
+      action?: string;
+    };
+    const allowedHostnames = new Set([
+      new URL(env.PUBLIC_BASE_URL).hostname,
+      new URL(env.MINECRAFT_PUBLIC_BASE_URL).hostname,
+    ]);
+    if (/^[123]x0{30,}/.test(env.TURNSTILE_SECRET_KEY)) {
+      allowedHostnames.add(new URL(request.url).hostname);
+    }
+    return (
+      result.success === true &&
+      result.action === "minecraft_login" &&
+      typeof result.hostname === "string" &&
+      allowedHostnames.has(result.hostname)
+    );
+  } catch (error) {
+    console.error(
+      "turnstile_validation_failed",
+      error instanceof Error ? error.message : "unknown",
+    );
+    return false;
+  }
+}
+
+function sameOrigin(request: Request): boolean {
+  return acceptsFormOrigin(request.headers.get("origin"), request.url);
+}
+
+export function acceptsFormOrigin(origin: string | null, requestUrl: string): boolean {
+  return origin === null || origin === "null" || origin === new URL(requestUrl).origin;
+}
+
+function redirectLogin(path: string, status: string): Response {
+  return new Response(null, {
+    status: 303,
+    headers: {
+      location: `${path}?status=${encodeURIComponent(status)}`,
+      "cache-control": "no-store",
+    },
+  });
+}
+
 export function buildUploadUrls(
   publicBaseUrlValue: string,
   minecraftPublicBaseUrlValue: string,
@@ -687,14 +900,6 @@ function cookieValue(request: Request, name: string): string | null {
 
 function sessionCookie(value: string, maxAgeSeconds: number): string {
   return `session=${encodeURIComponent(value)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${Math.floor(maxAgeSeconds)}`;
-}
-
-async function readJson<T>(request: Request): Promise<T | null> {
-  try {
-    return (await request.json()) as T;
-  } catch {
-    return null;
-  }
 }
 
 function json(value: unknown, status = 200): Response {

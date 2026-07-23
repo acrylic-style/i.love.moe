@@ -1,7 +1,6 @@
 package moe.love.i.client;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonObject;
 
 import java.io.IOException;
 import java.net.URI;
@@ -60,19 +59,8 @@ final class ApiClient {
         });
     }
 
-    CompletableFuture<Void> sendMagicLink(String email) {
-        return deviceToken().thenCompose(token -> {
-            JsonObject body = new JsonObject();
-            body.addProperty("email", email);
-            HttpRequest request = authenticatedRequest("/api/v1/auth/magic-links", token)
-                    .header("content-type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(body)))
-                    .build();
-            return send(request).thenApply(response -> {
-                requireStatus(response, 202);
-                return null;
-            });
-        });
+    CompletableFuture<LoginResult> createBrowserLogin() {
+        return deviceToken().thenCompose(token -> sendBrowserLogin(token, true));
     }
 
     private CompletableFuture<UploadResult> sendUpload(Path image, ServerMetadata serverMetadata, boolean automatic, String token, boolean retryAuthentication) {
@@ -117,6 +105,27 @@ final class ApiClient {
             requireStatus(response, 200);
             AccountResult result = GSON.fromJson(response.body(), AccountResult.class);
             if (result == null || result.plan == null) throw new CompletionException(new ApiException("invalid_response"));
+            return CompletableFuture.completedFuture(result);
+        });
+    }
+
+    private CompletableFuture<LoginResult> sendBrowserLogin(String token, boolean retryAuthentication) {
+        HttpRequest request = authenticatedRequest("/api/v1/auth/browser-login", token)
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build();
+        return send(request).thenCompose(response -> {
+            if (response.statusCode() == 401 && retryAuthentication) {
+                config.clearDeviceToken();
+                synchronized (this) {
+                    registration = null;
+                }
+                return deviceToken().thenCompose(newToken -> sendBrowserLogin(newToken, false));
+            }
+            requireStatus(response, 201);
+            LoginResult result = GSON.fromJson(response.body(), LoginResult.class);
+            if (result == null || result.url == null || result.url.isBlank()) {
+                throw new CompletionException(new ApiException("invalid_response"));
+            }
             return CompletableFuture.completedFuture(result);
         });
     }
@@ -199,6 +208,11 @@ final class ApiClient {
     static final class AccountResult {
         String plan;
         boolean autoUploadAllowed;
+    }
+
+    static final class LoginResult {
+        String url;
+        String expiresAt;
     }
 
     private static final class DeviceResult {

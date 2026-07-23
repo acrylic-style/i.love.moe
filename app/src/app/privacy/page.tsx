@@ -42,7 +42,7 @@ export default async function PrivacyPage() {
           </li>
           <li>
             <span className="text-foreground">利用・セキュリティ情報：</span>
-            アップロードやアクセスの日時、エラー・処理ログ、レート制限のために秘密鍵付きハッシュへ変換したIPアドレス、ブラウザや通信に伴う技術情報
+            アップロードやアクセスの日時、エラー・処理ログ、レート制限のために秘密鍵付きハッシュへ変換したIPアドレスとメールアドレス、ブラウザや通信に伴う技術情報
           </li>
         </LegalList>
       </LegalSection>
@@ -102,7 +102,7 @@ export default async function PrivacyPage() {
         <LegalList>
           <li>
             <span className="text-foreground">Cloudflare, Inc.：</span>
-            Workers、D1、R2、Queues、メール送信、配信・セキュリティ・ログ基盤
+            Workers、D1、R2、Queues、メール送信、Turnstile、配信・セキュリティ・ログ基盤
           </li>
           <li>
             <span className="text-foreground">Stripe, Inc.およびその関連会社：</span>
@@ -207,9 +207,9 @@ function EnglishPrivacy() {
           </li>
           <li>
             <span className="text-foreground">Usage and security information: </span>
-            Upload and access times, error and processing logs, IP addresses transformed into keyed
-            hashes for rate limiting, and technical information accompanying browser and network
-            communication.
+            Upload and access times, error and processing logs, IP and email addresses transformed
+            into keyed hashes for rate limiting, and technical information accompanying browser and
+            network communication.
           </li>
         </LegalList>
       </LegalSection>
@@ -287,8 +287,8 @@ function EnglishPrivacy() {
         <LegalList>
           <li>
             <span className="text-foreground">Cloudflare, Inc.: </span>
-            Workers, D1, R2, Queues, email delivery, content delivery, security, and logging
-            infrastructure.
+            Workers, D1, R2, Queues, email delivery, Turnstile, content delivery, security, and
+            logging infrastructure.
           </li>
           <li>
             <span className="text-foreground">Stripe, Inc. and its affiliates: </span>

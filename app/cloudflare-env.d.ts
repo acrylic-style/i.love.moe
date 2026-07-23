@@ -10,6 +10,8 @@ declare global {
     MINECRAFT_PUBLIC_BASE_URL: string;
     EMAIL_FROM: string;
     RATE_LIMIT_SALT: string;
+    TURNSTILE_SITE_KEY: string;
+    TURNSTILE_SECRET_KEY: string;
     RETENTION_QUEUE: Queue<import("./src/types").RetentionMessage>;
     STRIPE_SECRET_KEY: string;
     STRIPE_WEBHOOK_SECRET: string;

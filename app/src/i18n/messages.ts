@@ -14,7 +14,22 @@ const en: Record<string, string> = {
   "common.imageCount": "{count} images",
   "common.until": "until",
   "auth.required": "Sign-in required",
-  "auth.fromMod": "Send yourself a sign-in link from the Mod.",
+  "auth.fromMod": "Open the sign-in form from the Mod.",
+  "login.title": "Sign in from Minecraft",
+  "login.description":
+    "Enter your email address. We will send a sign-in link after a security check.",
+  "login.email": "Email address",
+  "login.submit": "Send sign-in link",
+  "login.privacyNote": "Your email address will not appear in Minecraft chat or command history.",
+  "login.sentTitle": "Check your email",
+  "login.sentDescription":
+    "If the request can be accepted, a sign-in link has been sent. Open it within 15 minutes.",
+  "login.invalidTitle": "This sign-in form has expired",
+  "login.invalidDescription": "Run /ilovemoe login again in Minecraft.",
+  "login.error.invalidEmail": "Check the email address.",
+  "login.error.turnstile": "The security check failed. Please try again.",
+  "login.error.unavailable": "The email could not be sent. Please try again later.",
+  "login.error.invalidRequest": "This request could not be verified. Please try again.",
   "home.title": "Share your Minecraft moment instantly.",
   "home.description":
     "Upload screenshots from the Fabric Mod and receive a short URL on your clipboard.",
@@ -238,7 +253,23 @@ const ja: Record<string, string> = {
   "common.imageCount": "{count}枚",
   "common.until": "まで",
   "auth.required": "ログインが必要です",
-  "auth.fromMod": "Modからログインリンクを送信してください。",
+  "auth.fromMod": "Modからログインフォームを開いてください。",
+  "login.title": "Minecraftからログイン",
+  "login.description":
+    "メールアドレスを入力してください。セキュリティ確認後にログインリンクを送信します。",
+  "login.email": "メールアドレス",
+  "login.submit": "ログインリンクを送る",
+  "login.privacyNote":
+    "メールアドレスがMinecraftのチャットやコマンド履歴に表示されることはありません。",
+  "login.sentTitle": "メールを確認してください",
+  "login.sentDescription":
+    "受付可能な場合はログインリンクを送信しました。15分以内に開いてください。",
+  "login.invalidTitle": "ログインフォームの有効期限が切れています",
+  "login.invalidDescription": "Minecraftで /ilovemoe login をもう一度実行してください。",
+  "login.error.invalidEmail": "メールアドレスを確認してください。",
+  "login.error.turnstile": "セキュリティ確認に失敗しました。もう一度試してください。",
+  "login.error.unavailable": "メールを送信できませんでした。時間を置いて試してください。",
+  "login.error.invalidRequest": "リクエストを確認できませんでした。もう一度試してください。",
   "home.title": "Minecraftの一枚を、すぐ共有。",
   "home.description":
     "Fabric Modからスクリーンショットをアップロードし、短いURLをクリップボードへ届けます。",

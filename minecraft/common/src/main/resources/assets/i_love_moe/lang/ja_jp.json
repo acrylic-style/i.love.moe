@@ -18,7 +18,7 @@
   "message.i_love_moe.state.on": "ON",
   "message.i_love_moe.state.off": "OFF",
   "message.i_love_moe.image.deleted": "画像を削除しました",
-  "message.i_love_moe.login.email_sent": "ログインリンクをメールで送信しました",
+  "message.i_love_moe.login.form_ready": "ログインフォームを開いてください（URLをコピー済み） %s",
   "message.i_love_moe.error.prefixed": "i.らぶ.moe: %s",
   "message.i_love_moe.error.screenshot_missing": "スクリーンショットが見つかりません",
   "message.i_love_moe.error.auto_upload_plus_lost": "Plusを確認できなかったため、自動アップロードをOFFにしました",
