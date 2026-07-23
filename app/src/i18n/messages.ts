@@ -208,6 +208,8 @@ const en: Record<string, string> = {
   "album.orderError": "Could not save the order.",
   "viewer.sharePage": "Shared page",
   "viewer.imageTitle": "Image {code}",
+  "viewer.imagePreviewDescription": "A Minecraft screenshot shared with i.らぶ.moe.",
+  "viewer.albumPreviewDescription": "A Minecraft screenshot album shared with i.らぶ.moe.",
   "viewer.albumEmpty": "This album has no images that are currently available.",
   "viewer.protectedEyebrow": "Protected",
   "viewer.passphraseTitle": "Enter passphrase",
@@ -449,6 +451,9 @@ const ja: Record<string, string> = {
   "album.orderError": "保存できませんでした。",
   "viewer.sharePage": "共有ページ",
   "viewer.imageTitle": "画像 {code}",
+  "viewer.imagePreviewDescription": "i.らぶ.moeで共有されたMinecraftのスクリーンショットです。",
+  "viewer.albumPreviewDescription":
+    "i.らぶ.moeで共有されたMinecraftのスクリーンショットアルバムです。",
   "viewer.albumEmpty": "このアルバムには、今見られる画像がありません。",
   "viewer.protectedEyebrow": "Protected",
   "viewer.passphraseTitle": "合言葉を入力",

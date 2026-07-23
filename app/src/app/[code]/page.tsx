@@ -8,11 +8,12 @@ import { LocalDateTime } from "@/components/local-date-time";
 import { ServerMetadata } from "@/components/server-metadata";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { findActiveImageByCode, SHORT_CODE_PATTERN } from "@/service";
-import { authorizeAlbumForImage, authorizeTarget } from "@/access";
+import { authorizeTarget } from "@/access";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { PassphraseInput } from "@/components/passphrase-input";
 import { getI18n } from "@/i18n/server";
+import { buildOpenGraphImage } from "@/og";
 
 export const dynamic = "force-dynamic";
 
@@ -22,11 +23,26 @@ const resolveTarget = cache(
     const image = await findActiveImageByCode(env, code);
     if (image) {
       const direct = await authorizeTarget(cookieHeader, env, "image", image);
+      const albumDetail =
+        albumCode && SHORT_CODE_PATTERN.test(albumCode)
+          ? await findActiveAlbumByCode(env, albumCode)
+          : null;
+      const imageBelongsToAlbum =
+        albumDetail?.images.some((albumImage) => albumImage.id === image.id) ?? false;
       const viaAlbum =
-        !direct && albumCode && SHORT_CODE_PATTERN.test(albumCode)
-          ? await authorizeAlbumForImage(cookieHeader, env, albumCode, image.id)
+        !direct && albumDetail && imageBelongsToAlbum
+          ? await authorizeTarget(cookieHeader, env, "album", albumDetail.album)
           : false;
-      return { type: "image" as const, image, allowed: direct || viaAlbum, albumCode };
+      return {
+        type: "image" as const,
+        image,
+        allowed: direct || viaAlbum,
+        albumCode,
+        publicAlbum:
+          imageBelongsToAlbum && albumDetail?.album.visibility === "unlisted"
+            ? albumDetail.album
+            : null,
+      };
     }
     const album = await findActiveAlbumByCode(env, code);
     return album
@@ -54,13 +70,53 @@ export async function generateMetadata({
   const target = await resolveTarget(code, cookieHeader, album);
   if (!target || !target.allowed)
     return { title: t("viewer.sharePage"), robots: { index: false, follow: false } };
+  const env = getEnv();
+  const title =
+    target.type === "image"
+      ? (target.image.title ?? t("viewer.imageTitle", { code }))
+      : target.detail.album.title;
+  const description =
+    target.type === "album"
+      ? (target.detail.album.description ?? t("viewer.albumPreviewDescription"))
+      : t("viewer.imagePreviewDescription");
+  const shareVisibility =
+    target.type === "image"
+      ? target.image.visibility === "unlisted"
+        ? target.image.visibility
+        : target.publicAlbum?.visibility
+      : target.detail.album.visibility;
+  const previewImage =
+    shareVisibility === "unlisted"
+      ? target.type === "image"
+        ? buildOpenGraphImage(
+            env.PUBLIC_BASE_URL,
+            shareVisibility,
+            target.image,
+            target.publicAlbum?.code,
+          )
+        : buildOpenGraphImage(env.PUBLIC_BASE_URL, shareVisibility, target.detail.images[0], code)
+      : undefined;
+  const pageUrl = new URL(`/${code}`, `${env.PUBLIC_BASE_URL.replace(/\/$/, "")}/`);
+  if (target.type === "image" && target.publicAlbum) {
+    pageUrl.searchParams.set("album", target.publicAlbum.code);
+  }
   return {
-    title:
-      target.type === "image"
-        ? (target.image.title ?? t("viewer.imageTitle", { code }))
-        : target.detail.album.title,
-    description:
-      target.type === "album" ? (target.detail.album.description ?? undefined) : undefined,
+    title,
+    description,
+    openGraph: {
+      type: "website",
+      siteName: "i.らぶ.moe",
+      url: pageUrl.toString(),
+      title,
+      description,
+      images: previewImage ? [previewImage] : undefined,
+    },
+    twitter: {
+      card: previewImage ? "summary_large_image" : "summary",
+      title,
+      description,
+      images: previewImage ? [previewImage.url] : undefined,
+    },
     robots: { index: false, follow: false },
   };
 }
