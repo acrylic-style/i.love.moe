@@ -3,6 +3,9 @@ import { authenticateSession } from "./service";
 import { subscriptionSummary } from "./plans";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+// Bump this whenever the Checkout Session parameters change. Stripe requires
+// every request sharing an idempotency key to have exactly the same parameters.
+const PLUS_CHECKOUT_IDEMPOTENCY_VERSION = "v3";
 
 function stripeClient(env: CloudflareEnv): Stripe {
   return new Stripe(env.STRIPE_SECRET_KEY, {
@@ -27,9 +30,13 @@ export async function createCheckout(request: Request, env: CloudflareEnv): Prom
     userId: session.user_id,
     priceId: env.STRIPE_PLUS_PRICE_ID,
     baseUrl,
-  }), { idempotencyKey: `plus-checkout-${session.user_id}-${Math.floor(Date.now() / 3_600_000)}` });
+  }), { idempotencyKey: plusCheckoutIdempotencyKey(session.user_id) });
   if (!checkout.url) throw new Error("stripe_checkout_url_missing");
   return new Response(null, { status: 303, headers: { location: checkout.url, "cache-control": "no-store" } });
+}
+
+export function plusCheckoutIdempotencyKey(userId: string, now = Date.now()): string {
+  return `plus-checkout-${PLUS_CHECKOUT_IDEMPOTENCY_VERSION}-${userId}-${Math.floor(now / 3_600_000)}`;
 }
 
 export function plusCheckoutSessionParams({ customerId, userId, priceId, baseUrl }: {
@@ -46,6 +53,7 @@ export function plusCheckoutSessionParams({ customerId, userId, priceId, baseUrl
     success_url: `${baseUrl}/manage?checkout=success`,
     cancel_url: `${baseUrl}/plus?checkout=canceled`,
     allow_promotion_codes: true,
+    payment_method_collection: "if_required",
     subscription_data: { metadata: { user_id: userId } },
     payment_method_options: {
       card: { request_three_d_secure: "any" },
