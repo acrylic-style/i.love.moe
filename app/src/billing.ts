@@ -45,6 +45,7 @@ export function plusCheckoutSessionParams({ customerId, userId, priceId, baseUrl
     line_items: [{ price: priceId, quantity: 1 }],
     success_url: `${baseUrl}/manage?checkout=success`,
     cancel_url: `${baseUrl}/plus?checkout=canceled`,
+    allow_promotion_codes: true,
     subscription_data: { metadata: { user_id: userId } },
     payment_method_options: {
       card: { request_three_d_secure: "any" },

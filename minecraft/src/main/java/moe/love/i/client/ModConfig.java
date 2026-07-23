@@ -16,6 +16,7 @@ final class ModConfig {
 
     String apiBaseUrl = "https://i.らぶ.moe";
     String deviceToken;
+    boolean autoUpload;
 
     static ModConfig load() {
         if (!Files.exists(PATH)) {
@@ -45,6 +46,15 @@ final class ModConfig {
         save();
     }
 
+    synchronized void setAutoUpload(boolean enabled) {
+        autoUpload = enabled;
+        save();
+    }
+
+    boolean autoUploadEnabled() {
+        return autoUpload;
+    }
+
     synchronized void save() {
         try {
             Files.createDirectories(PATH.getParent());
@@ -65,4 +75,3 @@ final class ModConfig {
         return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
     }
 }
-

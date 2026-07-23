@@ -73,6 +73,10 @@ export async function uploadImage(request: Request, env: CloudflareEnv): Promise
   }
   const declaredLength = Number(request.headers.get("content-length") ?? 0);
   if (declaredLength > MAX_IMAGE_BYTES) return apiError("image_too_large", 413);
+  const limits = await planLimits(env, device.user_id);
+  if (request.headers.get("x-i-love-moe-auto-upload") === "true" && limits.name !== "plus") {
+    return apiError("plus_required", 403);
+  }
 
   const body = new Uint8Array(await request.arrayBuffer());
   if (body.byteLength === 0 || body.byteLength > MAX_IMAGE_BYTES) return apiError("image_too_large", 413);
@@ -84,7 +88,6 @@ export async function uploadImage(request: Request, env: CloudflareEnv): Promise
 
   const now = Date.now();
   const quotaStart = now - THIRTY_DAYS_MS;
-  const limits = await planLimits(env, device.user_id);
   const quota = device.user_id
     ? await env.DB.prepare("SELECT COUNT(*) AS count FROM images WHERE owner_user_id = ? AND created_at >= ?")
         .bind(device.user_id, quotaStart).first<{ count: number }>()
@@ -121,6 +124,13 @@ export async function uploadImage(request: Request, env: CloudflareEnv): Promise
     throw error;
   }
   return json({ id, url: `${publicBaseUrl(env)}/${code}`, expiresAt: new Date(expiresAt).toISOString() }, 201);
+}
+
+export async function devicePlan(request: Request, env: CloudflareEnv): Promise<Response> {
+  const device = await authenticateDevice(request, env);
+  if (!device) return apiError("unauthorized", 401);
+  const limits = await planLimits(env, device.user_id);
+  return json({ plan: limits.name, autoUploadAllowed: limits.name === "plus" });
 }
 
 export async function listImages(request: Request, env: CloudflareEnv): Promise<Response> {

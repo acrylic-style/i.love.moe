@@ -39,19 +39,32 @@ public final class ILoveMoeClient implements ClientModInitializer {
                         .then(ClientCommandManager.literal("login")
                                 .then(ClientCommandManager.argument("email", StringArgumentType.greedyString())
                                         .executes(context -> login(StringArgumentType.getString(context, "email")))))
+                        .then(ClientCommandManager.literal("auto-upload")
+                                .executes(context -> showAutoUploadStatus())
+                                .then(ClientCommandManager.literal("on").executes(context -> setAutoUpload(true)))
+                                .then(ClientCommandManager.literal("off").executes(context -> setAutoUpload(false))))
                         .then(ClientCommandManager.literal("manage").executes(context -> showManageLink()))
         ));
     }
 
     public static void onScreenshotSaved(Path screenshot) {
         Path normalized = screenshot.toAbsolutePath().normalize();
-        MinecraftClient.getInstance().execute(() -> offerUpload(normalized));
+        MinecraftClient.getInstance().execute(() -> handleScreenshot(normalized));
     }
 
-    static void offerUpload(Path screenshot) {
-        String id = UUID.randomUUID().toString();
+    private static void handleScreenshot(Path screenshot) {
         MinecraftClient client = MinecraftClient.getInstance();
-        PENDING_UPLOADS.put(id, new PendingUpload(screenshot, ServerMetadata.from(client.getCurrentServerEntry())));
+        ServerMetadata metadata = ServerMetadata.from(client.getCurrentServerEntry());
+        if (config.autoUploadEnabled()) {
+            beginUpload(screenshot, metadata, true);
+        } else {
+            offerUpload(screenshot, metadata);
+        }
+    }
+
+    static void offerUpload(Path screenshot, ServerMetadata serverMetadata) {
+        String id = UUID.randomUUID().toString();
+        PENDING_UPLOADS.put(id, new PendingUpload(screenshot, serverMetadata));
         MutableText action = Text.literal("[アップロード]")
                 .styled(style -> style.withColor(Formatting.AQUA)
                         .withUnderline(true)
@@ -65,9 +78,19 @@ public final class ILoveMoeClient implements ClientModInitializer {
             sendError("スクリーンショットが見つかりません");
             return 0;
         }
-        sendMessage(Text.literal("アップロードしています…").formatted(Formatting.GRAY));
-        api.upload(pending.screenshot(), pending.serverMetadata()).whenComplete((result, error) -> MinecraftClient.getInstance().execute(() -> {
+        beginUpload(pending.screenshot(), pending.serverMetadata(), false);
+        return 1;
+    }
+
+    private static void beginUpload(Path screenshot, ServerMetadata serverMetadata, boolean automatic) {
+        sendMessage(Text.literal(automatic ? "自動アップロードしています…" : "アップロードしています…").formatted(Formatting.GRAY));
+        api.upload(screenshot, serverMetadata, automatic).whenComplete((result, error) -> MinecraftClient.getInstance().execute(() -> {
             if (error != null) {
+                if (automatic && "plus_required".equals(ApiClient.errorCode(error))) {
+                    config.setAutoUpload(false);
+                    sendError("Plusを確認できなかったため、自動アップロードをOFFにしました");
+                    return;
+                }
                 sendError(ApiClient.humanReadableError(error));
                 return;
             }
@@ -84,6 +107,36 @@ public final class ILoveMoeClient implements ClientModInitializer {
                     .withClickEvent(new ClickEvent.RunCommand("/ilovemoe delete " + result.id)));
             sendMessage(Text.literal("アップロードしました（URLをコピー済み） ")
                     .append(open).append(" ").append(insert).append(" ").append(copy).append(" ").append(delete));
+        }));
+    }
+
+    private static int showAutoUploadStatus() {
+        sendMessage(Text.literal("自動アップロード: " + (config.autoUploadEnabled() ? "ON" : "OFF")).formatted(Formatting.GRAY));
+        return 1;
+    }
+
+    private static int setAutoUpload(boolean enabled) {
+        if (!enabled) {
+            config.setAutoUpload(false);
+            sendMessage(Text.literal("自動アップロードをOFFにしました").formatted(Formatting.GRAY));
+            return 1;
+        }
+        sendMessage(Text.literal("Plusプランを確認しています…").formatted(Formatting.GRAY));
+        api.account().whenComplete((account, error) -> MinecraftClient.getInstance().execute(() -> {
+            if (error != null) {
+                sendError(ApiClient.humanReadableError(error));
+                return;
+            }
+            if (!account.autoUploadAllowed) {
+                config.setAutoUpload(false);
+                MutableText plus = Text.literal("[Plusを見る]").styled(style -> style.withColor(Formatting.AQUA)
+                        .withUnderline(true)
+                        .withClickEvent(new ClickEvent.OpenUrl(UriUtil.toHttpUri(config.baseUrl() + "/plus"))));
+                sendMessage(Text.literal("自動アップロードにはPlusが必要です ").formatted(Formatting.RED).append(plus));
+                return;
+            }
+            config.setAutoUpload(true);
+            sendMessage(Text.literal("自動アップロードをONにしました").formatted(Formatting.GREEN));
         }));
         return 1;
     }

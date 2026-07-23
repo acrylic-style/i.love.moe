@@ -31,7 +31,7 @@ final class ApiClient {
         this.baseUri = UriUtil.toHttpUri(config.baseUrl());
     }
 
-    CompletableFuture<UploadResult> upload(Path image, ServerMetadata serverMetadata) {
+    CompletableFuture<UploadResult> upload(Path image, ServerMetadata serverMetadata, boolean automatic) {
         try {
             long size = Files.size(image);
             if (size == 0 || size > MAX_IMAGE_BYTES) {
@@ -41,7 +41,11 @@ final class ApiClient {
             return CompletableFuture.failedFuture(exception);
         }
 
-        return deviceToken().thenCompose(token -> sendUpload(image, serverMetadata, token, true));
+        return deviceToken().thenCompose(token -> sendUpload(image, serverMetadata, automatic, token, true));
+    }
+
+    CompletableFuture<AccountResult> account() {
+        return deviceToken().thenCompose(token -> sendAccount(token, true));
     }
 
     CompletableFuture<Void> delete(String imageId) {
@@ -71,11 +75,13 @@ final class ApiClient {
         });
     }
 
-    private CompletableFuture<UploadResult> sendUpload(Path image, ServerMetadata serverMetadata, String token, boolean retryAuthentication) {
+    private CompletableFuture<UploadResult> sendUpload(Path image, ServerMetadata serverMetadata, boolean automatic, String token, boolean retryAuthentication) {
         HttpRequest request;
         try {
-            request = serverMetadata.addHeaders(authenticatedRequest("/api/v1/images", token)
-                    .header("content-type", "image/png"))
+            HttpRequest.Builder builder = serverMetadata.addHeaders(authenticatedRequest("/api/v1/images", token)
+                    .header("content-type", "image/png"));
+            if (automatic) builder.header("x-i-love-moe-auto-upload", "true");
+            request = builder
                     .POST(HttpRequest.BodyPublishers.ofFile(image))
                     .build();
         } catch (IOException exception) {
@@ -87,13 +93,30 @@ final class ApiClient {
                 synchronized (this) {
                     registration = null;
                 }
-                return deviceToken().thenCompose(newToken -> sendUpload(image, serverMetadata, newToken, false));
+                return deviceToken().thenCompose(newToken -> sendUpload(image, serverMetadata, automatic, newToken, false));
             }
             requireStatus(response, 201);
             UploadResult result = GSON.fromJson(response.body(), UploadResult.class);
             if (result == null || result.id == null || result.url == null) {
                 throw new CompletionException(new ApiException("invalid_response"));
             }
+            return CompletableFuture.completedFuture(result);
+        });
+    }
+
+    private CompletableFuture<AccountResult> sendAccount(String token, boolean retryAuthentication) {
+        HttpRequest request = authenticatedRequest("/api/v1/account", token).GET().build();
+        return send(request).thenCompose(response -> {
+            if (response.statusCode() == 401 && retryAuthentication) {
+                config.clearDeviceToken();
+                synchronized (this) {
+                    registration = null;
+                }
+                return deviceToken().thenCompose(newToken -> sendAccount(newToken, false));
+            }
+            requireStatus(response, 200);
+            AccountResult result = GSON.fromJson(response.body(), AccountResult.class);
+            if (result == null || result.plan == null) throw new CompletionException(new ApiException("invalid_response"));
             return CompletableFuture.completedFuture(result);
         });
     }
@@ -165,6 +188,7 @@ final class ApiClient {
                 case "invalid_png", "invalid_image_type" -> "PNG画像として認識できません";
                 case "invalid_server_metadata" -> "サーバー情報を送信できませんでした";
                 case "upload_limit_reached" -> "直近30日のアップロード上限に達しています";
+                case "plus_required" -> "自動アップロードにはPlusが必要です";
                 case "invalid_email" -> "メールアドレスをご確認ください";
                 case "too_many_requests" -> "しばらく待ってからお試しください";
                 case "email_unavailable" -> "ログインメールを送信できませんでした";
@@ -176,10 +200,21 @@ final class ApiClient {
         return "サーバーとの通信に失敗しました";
     }
 
+    static String errorCode(Throwable error) {
+        Throwable current = error;
+        while (current instanceof CompletionException && current.getCause() != null) current = current.getCause();
+        return current instanceof ApiException api ? api.code : null;
+    }
+
     static final class UploadResult {
         String id;
         String url;
         String expiresAt;
+    }
+
+    static final class AccountResult {
+        String plan;
+        boolean autoUploadAllowed;
     }
 
     private static final class DeviceResult {

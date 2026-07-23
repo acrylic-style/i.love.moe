@@ -11,6 +11,7 @@ describe("Plus Checkout", () => {
     });
 
     expect(params.payment_method_options?.card?.request_three_d_secure).toBe("any");
+    expect(params.allow_promotion_codes).toBe(true);
     expect(params.mode).toBe("subscription");
     expect(params.subscription_data?.metadata?.user_id).toBe("user-test");
   });

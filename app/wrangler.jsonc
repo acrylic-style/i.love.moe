@@ -8,7 +8,7 @@
   "vars": {
     "PUBLIC_BASE_URL": "https://i.xn--29jub.moe",
     "EMAIL_FROM": "login@i.xn--29jub.moe",
-    "STRIPE_PLUS_PRICE_ID": "price_1Tw2vUDMpG6fNRiAaOjZcKPI",
+    "STRIPE_PLUS_PRICE_ID": "price_1Tw3s8DuEzGgZNJftccZyYBy",
     "LEGAL_NOTICE_URL": "https://gist.github.com/acrylic-style/002d58b4416b55d36c965cfd6d81e1c2"
   },
   "secrets": {
