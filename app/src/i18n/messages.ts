@@ -62,7 +62,7 @@ const en: Record<string, string> = {
   "guide.stepsTitle": "Upload steps",
   "guide.step1Title": "1. Download and install",
   "guide.step1Description":
-    "Download the Mod from Modrinth and place the JAR, together with Fabric API, in your mods folder.",
+    "Download the Mod from GitHub and place the JAR, together with Fabric API, in your mods folder.",
   "guide.step2Title": "2. Take a screenshot",
   "guide.step2Description":
     "Start Minecraft with Fabric and press F2. An Upload button appears in the chat message.",
@@ -75,7 +75,7 @@ const en: Record<string, string> = {
   "guide.plusTitle": "Automatic uploads with Plus",
   "guide.plusDescription":
     "Plus members can enable automatic F2 uploads with /ilovemoe auto-upload on.",
-  "guide.download": "Download from Modrinth",
+  "guide.download": "Download from GitHub",
   "guide.viewPlus": "View Plus",
   "notFound.message": "The image or album could not be found, or its sharing period has ended.",
   "footer.legalNav": "Legal information",
@@ -431,7 +431,7 @@ const ja: Record<string, string> = {
   "guide.stepsTitle": "アップロード手順",
   "guide.step1Title": "1. ダウンロードして導入",
   "guide.step1Description":
-    "ModrinthからModをダウンロードし、Fabric APIと一緒にmodsフォルダへJARを入れます。",
+    "GitHubからModをダウンロードし、Fabric APIと一緒にmodsフォルダへJARを入れます。",
   "guide.step2Title": "2. スクリーンショットを撮影",
   "guide.step2Description":
     "FabricでMinecraftを起動してF2を押します。チャットメッセージに「アップロード」ボタンが表示されます。",
@@ -444,7 +444,7 @@ const ja: Record<string, string> = {
   "guide.plusTitle": "Plusの自動アップロード",
   "guide.plusDescription":
     "Plusでは /ilovemoe auto-upload on を実行すると、F2撮影後の自動アップロードを利用できます。",
-  "guide.download": "Modrinthからダウンロード",
+  "guide.download": "GitHubからダウンロード",
   "guide.viewPlus": "Plusを見る",
   "notFound.message": "画像またはアルバムが見つからないか、公開期間が終了しています。",
   "footer.legalNav": "法的情報",
