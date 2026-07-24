@@ -1008,8 +1008,16 @@ export async function findActiveImageByCode(
   return env.DB.prepare(
     `SELECT i.id, i.title, i.server_address, i.server_name, i.owner_device_id, i.owner_user_id, i.r2_key, i.byte_size, i.width,
       i.height, i.created_at, i.expires_at, i.deleted_at, i.visibility, i.discoverability, i.server_id, i.access_version,
-      i.storage_tier, i.minecraft_uuid, i.minecraft_name, i.minecraft_id_public, s.code
+      i.storage_tier, i.minecraft_uuid, i.minecraft_name, i.minecraft_id_public,
+      CASE WHEN verified_server.verified_at IS NOT NULL
+        THEN COALESCE(verified_server.display_name, (
+          SELECT display_address FROM server_addresses
+          WHERE server_id = verified_server.id AND is_primary = 1 LIMIT 1
+        ))
+      END AS verified_server_name,
+      verified_server.verified_at AS server_verified_at, s.code
     FROM short_links s JOIN images i ON i.id = s.target_id
+    LEFT JOIN servers verified_server ON verified_server.id = i.server_id
     WHERE s.code = ? AND s.target_type = 'image' AND s.retired_at IS NULL
       AND i.deleted_at IS NULL AND i.expires_at > ?`,
   )

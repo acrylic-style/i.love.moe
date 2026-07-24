@@ -1,16 +1,19 @@
 import { ServerIcon } from "lucide-react";
 import { getI18n } from "@/i18n/server";
+import { VerifiedMark } from "@/components/verified-mark";
 
 export async function ServerMetadata({
   name,
   address,
   compact = false,
   href,
+  verified = false,
 }: {
   name: string | null;
   address: string | null;
   compact?: boolean;
   href?: string;
+  verified?: boolean;
 }) {
   if (!name && !address) return null;
   const { t } = await getI18n();
@@ -28,14 +31,32 @@ export async function ServerMetadata({
         {href ? (
           <a className="hover:underline" href={href}>
             {name && (
-              <p className={compact ? "truncate text-foreground" : "text-foreground"}>{name}</p>
+              <p
+                className={
+                  compact
+                    ? "flex items-center gap-1 truncate text-foreground"
+                    : "flex items-center gap-1 text-foreground"
+                }
+              >
+                <span className="truncate">{name}</span>
+                {verified && <VerifiedMark label={t("servers.verified")} iconOnly />}
+              </p>
             )}
             {address && <p className="break-all text-muted-foreground">{address}</p>}
           </a>
         ) : (
           <>
             {name && (
-              <p className={compact ? "truncate text-foreground" : "text-foreground"}>{name}</p>
+              <p
+                className={
+                  compact
+                    ? "flex items-center gap-1 truncate text-foreground"
+                    : "flex items-center gap-1 text-foreground"
+                }
+              >
+                <span className="truncate">{name}</span>
+                {verified && <VerifiedMark label={t("servers.verified")} iconOnly />}
+              </p>
             )}
             {address && <p className="break-all text-muted-foreground">{address}</p>}
           </>

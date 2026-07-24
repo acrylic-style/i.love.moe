@@ -80,6 +80,8 @@ export interface ImageRow {
   minecraft_id_public?: number;
   discoverability: Discoverability;
   server_id: string | null;
+  verified_server_name?: string | null;
+  server_verified_at?: number | null;
   server_host_ascii?: string | null;
   server_port?: number | null;
   favorited_at?: number | null;

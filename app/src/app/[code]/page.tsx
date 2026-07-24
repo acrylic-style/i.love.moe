@@ -286,8 +286,9 @@ export default async function ViewerPage({
           </div>
           <div className="mt-4">
             <ServerMetadata
-              name={image.server_name}
+              name={image.verified_server_name ?? image.server_name}
               address={image.server_address}
+              verified={Boolean(image.server_verified_at)}
               href={
                 image.server_id
                   ? `${getEnv().PUBLIC_BASE_URL}/servers/by-id/${image.server_id}`
