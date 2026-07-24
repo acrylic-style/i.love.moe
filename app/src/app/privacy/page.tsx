@@ -32,6 +32,10 @@ export default async function PrivacyPage() {
             スクリーンショット、画像タイトル、画像サイズ・寸法、アルバム名・説明・並び順、タグ、お気に入り、公開範囲、Minecraftサーバー名・アドレス、サーバーページのプロフィール・検証情報・編集者、接続する独自ドメイン、短縮URL、保存期限
           </li>
           <li>
+            <span className="text-foreground">Discord連携情報：</span>
+            暗号化したWebhook URL、管理画面上の表示名、有効・無効状態、送信成否と日時
+          </li>
+          <li>
             <span className="text-foreground">Minecraftプロフィール情報：</span>
             Modから画像と一緒に送信されたMinecraft UUID、Minecraft
             ID、送信元端末、初回・最終確認日時、画像ごとの表示設定
@@ -58,6 +62,7 @@ export default async function PrivacyPage() {
           <li>端末認証、マジックリンクログイン、セッション維持、本人確認</li>
           <li>Plusプランの申込み、支払い、契約状態の反映、解約および問い合わせ対応</li>
           <li>保存期限、利用上限、画像移行その他プランごとの機能管理</li>
+          <li>確認済みサーバーの管理者が設定したDiscordチャンネルへの公開画像の通知</li>
           <li>
             不正アクセス、合言葉の総当たり、過剰な端末登録、禁止コンテンツその他の規約違反の検知・防止
           </li>
@@ -106,6 +111,11 @@ export default async function PrivacyPage() {
           <li>
             利用者が自ら第三者へ共有した情報については、共有先で保存・再共有される場合があります。
           </li>
+          <li>
+            サーバー管理者がDiscord
+            Webhookを設定している場合、そのサーバーに紐づく一般公開画像のタイトル、画像、共有URL、サーバー情報および公開設定中のMinecraft
+            IDが、設定先のDiscordチャンネルへ送信されます。
+          </li>
         </LegalList>
       </LegalSection>
 
@@ -126,6 +136,10 @@ export default async function PrivacyPage() {
             <span className="text-foreground">Amazon Web Services, Inc.：</span>
             禁止コンテンツの自動確認。保存前の画像を縮小・変換した一時的な複製をAmazon
             Rekognitionへ送信し、判定結果とモデルのバージョンを記録します。
+          </li>
+          <li>
+            <span className="text-foreground">Discord Inc.：</span>
+            確認済みサーバーの管理者がWebhook連携を有効にした場合の、公開画像のチャンネル通知
           </li>
         </LegalList>
         <p>外部事業者による取扱いには、各事業者のプライバシーポリシーが適用されます。</p>
@@ -216,6 +230,11 @@ function EnglishPrivacy() {
             short URLs, and expiration dates.
           </li>
           <li>
+            <span className="text-foreground">Discord integration information: </span>
+            Encrypted webhook URLs, management display names, enabled or disabled status, delivery
+            results, and delivery times.
+          </li>
+          <li>
             <span className="text-foreground">Minecraft profile information: </span>
             Minecraft UUIDs and Minecraft IDs sent by the Mod with images, source devices, first-
             and last-seen times, and per-image display settings.
@@ -253,6 +272,9 @@ function EnglishPrivacy() {
             To process Plus enrollment, payment, subscription status, cancellation, and support.
           </li>
           <li>To manage expiration, usage limits, migration, and other plan-specific features.</li>
+          <li>
+            To notify Discord channels configured by verified-server managers about public images.
+          </li>
           <li>
             To detect and prevent unauthorized access, passphrase guessing, excessive device
             registration, prohibited content, and other violations of the Terms.
@@ -311,6 +333,11 @@ function EnglishPrivacy() {
           <li>
             Information you share with another person may be stored or reshared by that recipient.
           </li>
+          <li>
+            If a server manager configures a Discord webhook, public images associated with that
+            server may send their title, image, sharing URL, server details, and any publicly
+            displayed Minecraft ID to the configured Discord channel.
+          </li>
         </LegalList>
       </LegalSection>
 
@@ -334,6 +361,10 @@ function EnglishPrivacy() {
             Automated prohibited-content checks. Before storage, a resized and converted temporary
             copy of an image is sent to Amazon Rekognition. The moderation result and model version
             are recorded.
+          </li>
+          <li>
+            <span className="text-foreground">Discord Inc.: </span>
+            Channel notifications for public images when enabled by a verified-server manager.
           </li>
         </LegalList>
         <p>Each provider’s privacy policy applies to its handling of information.</p>

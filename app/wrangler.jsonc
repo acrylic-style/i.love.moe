@@ -27,6 +27,7 @@
       "CLOUDFLARE_SAAS_ZONE_ID",
       "AWS_ACCESS_KEY_ID",
       "AWS_SECRET_ACCESS_KEY",
+      "WEBHOOK_ENCRYPTION_KEY",
     ],
   },
   "routes": [

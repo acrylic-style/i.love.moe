@@ -4,6 +4,11 @@ import { createConnection } from "node:net";
 import { domainToUnicode } from "node:url";
 import { planLimits } from "./plans";
 import { acceptsFormOrigin, authenticateSession, normalizeOptionalText } from "./service";
+import {
+  encryptWebhookUrl,
+  type ManagedDiscordWebhook,
+  normalizeDiscordWebhookUrl,
+} from "./discord-webhooks";
 import type { ImageRow, ServerRow } from "./types";
 
 const CHALLENGE_LIFETIME_MS = 30 * 60 * 1000;
@@ -626,6 +631,179 @@ export async function managedServerDetail(
     .bind(serverId, serverId)
     .all<ManagedServerDetail["addresses"][number]>();
   return { server, role: server.member_role, addresses: addresses.results };
+}
+
+export async function managedServerDiscordWebhooks(
+  env: CloudflareEnv,
+  serverId: string,
+): Promise<ManagedDiscordWebhook[]> {
+  const rows = await env.DB.prepare(
+    `SELECT id, display_name, created_at, status, disabled_at,
+      embed_title, server_field_title, minecraft_id_field_title,
+      last_success_at, last_failure_at, last_error_code
+      FROM server_discord_webhooks WHERE server_id = ? ORDER BY created_at`,
+  )
+    .bind(serverId)
+    .all<ManagedDiscordWebhook>();
+  return rows.results;
+}
+
+export async function addServerDiscordWebhook(
+  request: Request,
+  env: CloudflareEnv,
+  serverId: string,
+): Promise<Response> {
+  if (!acceptsFormOrigin(request.headers.get("origin"), request.url)) {
+    return Response.json({ error: "invalid_origin" }, { status: 403 });
+  }
+  const session = await authenticateSession(request, env);
+  if (!session || !(await canManageServer(env, serverId, session.user_id))) {
+    return new Response(null, { status: 404 });
+  }
+  const server = await env.DB.prepare("SELECT verified_at FROM servers WHERE id = ?")
+    .bind(serverId)
+    .first<{ verified_at: number | null }>();
+  if (!server?.verified_at) {
+    return Response.json({ error: "server_not_verified" }, { status: 403 });
+  }
+
+  const form = await request.formData();
+  const url = normalizeDiscordWebhookUrl(form.get("url"));
+  const displayName = normalizeOptionalText(form.get("displayName"), 80);
+  const embedTitle = normalizeOptionalText(form.get("embedTitle"), 256);
+  const serverFieldTitle = normalizeOptionalText(form.get("serverFieldTitle"), 256);
+  const minecraftIdFieldTitle = normalizeOptionalText(form.get("minecraftIdFieldTitle"), 256);
+  if (
+    !url ||
+    displayName === undefined ||
+    embedTitle === undefined ||
+    serverFieldTitle === undefined ||
+    minecraftIdFieldTitle === undefined
+  ) {
+    return Response.json({ error: "invalid_discord_webhook" }, { status: 400 });
+  }
+
+  let encrypted: Awaited<ReturnType<typeof encryptWebhookUrl>>;
+  try {
+    encrypted = await encryptWebhookUrl(url, env.WEBHOOK_ENCRYPTION_KEY);
+  } catch (error) {
+    console.error(
+      "discord_webhook_encryption_unavailable",
+      error instanceof Error ? error.message : "unknown",
+    );
+    return Response.json({ error: "webhook_configuration_unavailable" }, { status: 503 });
+  }
+
+  const owner = await env.DB.prepare("SELECT owner_user_id FROM servers WHERE id = ?")
+    .bind(serverId)
+    .first<{ owner_user_id: string | null }>();
+  const limit = (await planLimits(env, owner?.owner_user_id ?? null)).serverDiscordWebhooks;
+  const id = crypto.randomUUID();
+  const result = await env.DB.prepare(
+    `INSERT INTO server_discord_webhooks
+      (id, server_id, display_name, encrypted_url, encryption_iv, created_by_user_id, created_at,
+        embed_title, server_field_title, minecraft_id_field_title)
+    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    WHERE (SELECT COUNT(*) FROM server_discord_webhooks WHERE server_id = ?) < ?`,
+  )
+    .bind(
+      id,
+      serverId,
+      displayName || "Discord",
+      encrypted.encryptedUrl,
+      encrypted.encryptionIv,
+      session.user_id,
+      Date.now(),
+      embedTitle || "New Minecraft screenshot",
+      serverFieldTitle || "Server",
+      minecraftIdFieldTitle || "Minecraft ID",
+      serverId,
+      limit,
+    )
+    .run();
+  if ((result.meta.changes ?? 0) !== 1) {
+    return Response.json({ error: "webhook_limit_reached", limit }, { status: 409 });
+  }
+  return Response.json({ added: true, id }, { status: 201 });
+}
+
+export async function removeServerDiscordWebhook(
+  request: Request,
+  env: CloudflareEnv,
+  serverId: string,
+  webhookId: string,
+): Promise<Response> {
+  if (!acceptsFormOrigin(request.headers.get("origin"), request.url)) {
+    return Response.json({ error: "invalid_origin" }, { status: 403 });
+  }
+  const session = await authenticateSession(request, env);
+  if (!session || !(await canManageServer(env, serverId, session.user_id))) {
+    return new Response(null, { status: 404 });
+  }
+  const result = await env.DB.prepare(
+    "DELETE FROM server_discord_webhooks WHERE id = ? AND server_id = ?",
+  )
+    .bind(webhookId, serverId)
+    .run();
+  return new Response(null, { status: (result.meta.changes ?? 0) === 1 ? 204 : 404 });
+}
+
+export async function enableServerDiscordWebhook(
+  request: Request,
+  env: CloudflareEnv,
+  serverId: string,
+  webhookId: string,
+): Promise<Response> {
+  if (!acceptsFormOrigin(request.headers.get("origin"), request.url)) {
+    return Response.json({ error: "invalid_origin" }, { status: 403 });
+  }
+  const session = await authenticateSession(request, env);
+  if (!session || !(await canManageServer(env, serverId, session.user_id))) {
+    return new Response(null, { status: 404 });
+  }
+  const result = await env.DB.prepare(
+    `UPDATE server_discord_webhooks SET status = 'enabled', disabled_at = NULL
+      WHERE id = ? AND server_id = ?`,
+  )
+    .bind(webhookId, serverId)
+    .run();
+  return Response.json(
+    { enabled: (result.meta.changes ?? 0) === 1 },
+    { status: (result.meta.changes ?? 0) === 1 ? 200 : 404 },
+  );
+}
+
+export async function updateServerDiscordWebhookEmbedCopy(
+  request: Request,
+  env: CloudflareEnv,
+  serverId: string,
+  webhookId: string,
+): Promise<Response> {
+  if (!acceptsFormOrigin(request.headers.get("origin"), request.url)) {
+    return Response.json({ error: "invalid_origin" }, { status: 403 });
+  }
+  const session = await authenticateSession(request, env);
+  if (!session || !(await canManageServer(env, serverId, session.user_id))) {
+    return new Response(null, { status: 404 });
+  }
+  const form = await request.formData();
+  const embedTitle = normalizeOptionalText(form.get("embedTitle"), 256);
+  const serverFieldTitle = normalizeOptionalText(form.get("serverFieldTitle"), 256);
+  const minecraftIdFieldTitle = normalizeOptionalText(form.get("minecraftIdFieldTitle"), 256);
+  if (!embedTitle || !serverFieldTitle || !minecraftIdFieldTitle) {
+    return Response.json({ error: "invalid_discord_webhook_copy" }, { status: 400 });
+  }
+  const result = await env.DB.prepare(
+    `UPDATE server_discord_webhooks
+      SET embed_title = ?, server_field_title = ?, minecraft_id_field_title = ?
+      WHERE id = ? AND server_id = ?`,
+  )
+    .bind(embedTitle, serverFieldTitle, minecraftIdFieldTitle, webhookId, serverId)
+    .run();
+  return Response.json(
+    { saved: (result.meta.changes ?? 0) === 1 },
+    { status: (result.meta.changes ?? 0) === 1 ? 200 : 404 },
+  );
 }
 
 export async function uploadServerBranding(

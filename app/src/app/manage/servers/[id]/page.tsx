@@ -2,8 +2,10 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { getEnv } from "@/cloudflare";
 import { AsyncForm } from "@/components/async-form";
+import { LocalDateTime } from "@/components/local-date-time";
 import { ServerManager } from "@/components/server-manager";
 import { buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { customDomainForServer } from "@/custom-domains";
@@ -13,6 +15,7 @@ import {
   canUseServerPlus,
   type ManagedServerImageFilter,
   managedServerDetail,
+  managedServerDiscordWebhooks,
   managedServerImages,
 } from "@/servers";
 
@@ -33,7 +36,7 @@ export default async function ManageServerPage({
   const env = getEnv();
   const session = await authenticateSessionToken((await cookies()).get("session")?.value, env);
   if (!session) notFound();
-  const [detail, domain, plus, feedPage, editors] = await Promise.all([
+  const [detail, domain, plus, feedPage, editors, discordWebhooks] = await Promise.all([
     managedServerDetail(env, session.user_id, id),
     customDomainForServer(env, id),
     canUseServerPlus(env, id),
@@ -44,6 +47,7 @@ export default async function ManageServerPage({
     )
       .bind(id)
       .all<{ user_id: string; email: string }>(),
+    managedServerDiscordWebhooks(env, id),
   ]);
   if (!detail) notFound();
   const feedImages = feedPage.images;
@@ -80,6 +84,33 @@ export default async function ManageServerPage({
         saved: "保存しました",
         completed: "完了しました",
         failed: "失敗しました",
+        discordWebhooks: "Discord Webhook",
+        discordWebhookHelp:
+          "画像が一般公開になったとき、このサーバーのチャンネルへRich Embedを送ります。Webhook URLは保存後に表示されません。",
+        discordWebhookName: "表示名（任意）",
+        discordWebhookUrl: "Webhook URL",
+        discordWebhookAdd: "Webhookを追加",
+        discordWebhookAdding: "追加中…",
+        discordWebhookAdded: "追加しました",
+        discordWebhookLimit: `現在のプランでは${plus ? 5 : 1}個まで追加できます。`,
+        discordWebhookVerifiedOnly: "所有確認が完了したサーバーで使えます。",
+        discordWebhookNeverSent: "まだ送信していません",
+        discordWebhookLastSent: "最終送信",
+        discordWebhookLastFailed: "最終失敗",
+        discordWebhookEnabled: "有効",
+        discordWebhookDisabled: "無効",
+        discordWebhookEnable: "再度有効化",
+        discordWebhookEnabling: "有効化中…",
+        discordWebhookReenabled: "有効にしました",
+        discordWebhookEmbedCopy: "Embedの文言",
+        discordWebhookEmbedCopyHelp:
+          "画像名はEmbedの説明に表示されます。変更できるのはタイトルとフィールド名だけです。",
+        discordWebhookEmbedTitle: "Embedタイトル",
+        discordWebhookServerFieldTitle: "サーバーフィールド名",
+        discordWebhookMinecraftIdFieldTitle: "Minecraft IDフィールド名",
+        discordWebhookCopySave: "文言を保存",
+        discordWebhookCopySaving: "保存中…",
+        discordWebhookCopySaved: "保存しました",
       }
     : {
         profile: "Profile",
@@ -112,6 +143,33 @@ export default async function ManageServerPage({
         saved: "Saved.",
         completed: "Done",
         failed: "Failed",
+        discordWebhooks: "Discord webhooks",
+        discordWebhookHelp:
+          "When an image becomes public, a rich embed is sent to this server's channel. Webhook URLs are hidden after they are saved.",
+        discordWebhookName: "Display name (optional)",
+        discordWebhookUrl: "Webhook URL",
+        discordWebhookAdd: "Add webhook",
+        discordWebhookAdding: "Adding…",
+        discordWebhookAdded: "Added",
+        discordWebhookLimit: `Your current plan supports up to ${plus ? 5 : 1} webhook${plus ? "s" : ""}.`,
+        discordWebhookVerifiedOnly: "Available after server ownership has been verified.",
+        discordWebhookNeverSent: "No deliveries yet",
+        discordWebhookLastSent: "Last delivered",
+        discordWebhookLastFailed: "Last failed",
+        discordWebhookEnabled: "Enabled",
+        discordWebhookDisabled: "Disabled",
+        discordWebhookEnable: "Enable again",
+        discordWebhookEnabling: "Enabling…",
+        discordWebhookReenabled: "Enabled",
+        discordWebhookEmbedCopy: "Embed copy",
+        discordWebhookEmbedCopyHelp:
+          "The image title is shown in the embed description. Only the embed title and field names can be customized.",
+        discordWebhookEmbedTitle: "Embed title",
+        discordWebhookServerFieldTitle: "Server field name",
+        discordWebhookMinecraftIdFieldTitle: "Minecraft ID field name",
+        discordWebhookCopySave: "Save copy",
+        discordWebhookCopySaving: "Saving…",
+        discordWebhookCopySaved: "Saved",
       };
   return (
     <main className="mx-auto max-w-4xl space-y-4">
@@ -143,6 +201,173 @@ export default async function ManageServerPage({
             cnameTarget={env.SAAS_CNAME_TARGET ?? "mc.moe.pictures"}
             copy={copy}
           />
+          <section className="space-y-4">
+            <div className="space-y-1">
+              <h2 className="text-2xl font-semibold">{copy.discordWebhooks}</h2>
+              <p className="text-sm text-muted-foreground">{copy.discordWebhookHelp}</p>
+              <p className="text-sm text-muted-foreground">
+                {detail.server.verified_at
+                  ? copy.discordWebhookLimit
+                  : copy.discordWebhookVerifiedOnly}
+              </p>
+            </div>
+            {detail.server.verified_at && discordWebhooks.length < (plus ? 5 : 1) && (
+              <AsyncForm
+                className="grid gap-4 rounded-lg border p-4"
+                action={`/manage/servers/${id}/discord-webhooks`}
+                idle={copy.discordWebhookAdd}
+                pending={copy.discordWebhookAdding}
+                saved={copy.discordWebhookAdded}
+                failed={copy.failed}
+                resetOnSuccess
+              >
+                <label className="grid gap-2 text-sm">
+                  <span className="font-medium">{copy.discordWebhookName}</span>
+                  <Input name="displayName" maxLength={80} placeholder="Screenshots" />
+                </label>
+                <label className="grid gap-2 text-sm">
+                  <span className="font-medium">{copy.discordWebhookUrl}</span>
+                  <Input
+                    name="url"
+                    type="password"
+                    inputMode="url"
+                    autoComplete="off"
+                    placeholder="https://discord.com/api/webhooks/…"
+                    required
+                  />
+                </label>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <label className="grid gap-2 text-sm">
+                    <span className="font-medium">{copy.discordWebhookEmbedTitle}</span>
+                    <Input
+                      name="embedTitle"
+                      maxLength={256}
+                      defaultValue="New Minecraft screenshot"
+                      required
+                    />
+                  </label>
+                  <label className="grid gap-2 text-sm">
+                    <span className="font-medium">{copy.discordWebhookServerFieldTitle}</span>
+                    <Input name="serverFieldTitle" maxLength={256} defaultValue="Server" required />
+                  </label>
+                  <label className="grid gap-2 text-sm">
+                    <span className="font-medium">{copy.discordWebhookMinecraftIdFieldTitle}</span>
+                    <Input
+                      name="minecraftIdFieldTitle"
+                      maxLength={256}
+                      defaultValue="Minecraft ID"
+                      required
+                    />
+                  </label>
+                </div>
+              </AsyncForm>
+            )}
+            <div className="grid gap-3">
+              {discordWebhooks.map((webhook) => (
+                <div className="grid gap-4 rounded-lg border p-4" key={webhook.id}>
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium">{webhook.display_name}</p>
+                        <Badge variant={webhook.status === "enabled" ? "default" : "destructive"}>
+                          {webhook.status === "enabled"
+                            ? copy.discordWebhookEnabled
+                            : copy.discordWebhookDisabled}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {webhook.last_failure_at ? (
+                          <>
+                            {copy.discordWebhookLastFailed}:{" "}
+                            <LocalDateTime
+                              value={new Date(webhook.last_failure_at).toISOString()}
+                            />{" "}
+                            ({webhook.last_error_code ?? "unknown"})
+                          </>
+                        ) : webhook.last_success_at ? (
+                          <>
+                            {copy.discordWebhookLastSent}:{" "}
+                            <LocalDateTime
+                              value={new Date(webhook.last_success_at).toISOString()}
+                            />
+                          </>
+                        ) : (
+                          copy.discordWebhookNeverSent
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {webhook.status === "disabled" && (
+                        <AsyncForm
+                          action={`/manage/servers/${id}/discord-webhooks/${webhook.id}`}
+                          idle={copy.discordWebhookEnable}
+                          pending={copy.discordWebhookEnabling}
+                          saved={copy.discordWebhookReenabled}
+                          failed={copy.failed}
+                          buttonProps={{ variant: "outline", size: "sm" }}
+                        />
+                      )}
+                      <AsyncForm
+                        action={`/manage/servers/${id}/discord-webhooks/${webhook.id}`}
+                        method="DELETE"
+                        idle={copy.remove}
+                        pending={copy.working}
+                        saved={copy.completed}
+                        failed={copy.failed}
+                        buttonProps={{ variant: "destructive", size: "sm" }}
+                      />
+                    </div>
+                  </div>
+                  <AsyncForm
+                    className="grid gap-4 border-t pt-4"
+                    action={`/manage/servers/${id}/discord-webhooks/${webhook.id}/settings`}
+                    idle={copy.discordWebhookCopySave}
+                    pending={copy.discordWebhookCopySaving}
+                    saved={copy.discordWebhookCopySaved}
+                    failed={copy.failed}
+                  >
+                    <div className="space-y-1">
+                      <p className="font-medium">{copy.discordWebhookEmbedCopy}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {copy.discordWebhookEmbedCopyHelp}
+                      </p>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <label className="grid gap-2 text-sm">
+                        <span className="font-medium">{copy.discordWebhookEmbedTitle}</span>
+                        <Input
+                          name="embedTitle"
+                          maxLength={256}
+                          defaultValue={webhook.embed_title}
+                          required
+                        />
+                      </label>
+                      <label className="grid gap-2 text-sm">
+                        <span className="font-medium">{copy.discordWebhookServerFieldTitle}</span>
+                        <Input
+                          name="serverFieldTitle"
+                          maxLength={256}
+                          defaultValue={webhook.server_field_title}
+                          required
+                        />
+                      </label>
+                      <label className="grid gap-2 text-sm">
+                        <span className="font-medium">
+                          {copy.discordWebhookMinecraftIdFieldTitle}
+                        </span>
+                        <Input
+                          name="minecraftIdFieldTitle"
+                          maxLength={256}
+                          defaultValue={webhook.minecraft_id_field_title}
+                          required
+                        />
+                      </label>
+                    </div>
+                  </AsyncForm>
+                </div>
+              ))}
+            </div>
+          </section>
           {plus && (
             <section className="space-y-4">
               <h2 className="text-2xl font-semibold">{ja ? "ブランディング" : "Branding"}</h2>

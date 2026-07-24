@@ -13,6 +13,7 @@ export interface PlanLimits {
   serverBranding: boolean;
   serverEditors: boolean;
   customDomain: boolean;
+  serverDiscordWebhooks: number;
 }
 
 export const FREE_PLAN: PlanLimits = {
@@ -26,6 +27,7 @@ export const FREE_PLAN: PlanLimits = {
   serverBranding: false,
   serverEditors: false,
   customDomain: false,
+  serverDiscordWebhooks: 1,
 };
 
 export const PLUS_PLAN: PlanLimits = {
@@ -39,6 +41,7 @@ export const PLUS_PLAN: PlanLimits = {
   serverBranding: true,
   serverEditors: true,
   customDomain: true,
+  serverDiscordWebhooks: 5,
 };
 
 export interface SubscriptionSummary {

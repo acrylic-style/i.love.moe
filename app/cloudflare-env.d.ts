@@ -26,6 +26,7 @@ declare global {
     AWS_SECRET_ACCESS_KEY: string;
     AWS_REGION: string;
     ABUSE_CONTACT_EMAIL: string;
+    WEBHOOK_ENCRYPTION_KEY: string;
   }
 }
 

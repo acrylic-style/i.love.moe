@@ -10,6 +10,7 @@ import {
 import { inspectPng, MAX_IMAGE_BYTES } from "./png";
 import { moderateImage, ModerationUnavailableError } from "./moderation";
 import { parseServerAddress } from "./servers";
+import { notifyDiscordWebhooksForPublishedImage } from "./discord-webhooks";
 import type {
   BrowserLoginChallengeRow,
   DeviceRow,
@@ -858,6 +859,9 @@ export async function updateManagedImageVisibility(
     .run();
   if (discoverability === "public") {
     await associatePublicImageWithServer(env, id);
+    if (current.discoverability !== "public") {
+      await notifyPublishedImageSafely(env, id);
+    }
   }
   await revokeTargetGrants(env, "image", id);
   return json({ saved: true, visibility, discoverability, hasPassphrase: Boolean(hash) });
@@ -882,6 +886,9 @@ export async function publishImage(
     .bind(id)
     .run();
   await associatePublicImageWithServer(env, id);
+  if (image.discoverability !== "public") {
+    await notifyPublishedImageSafely(env, id);
+  }
   await revokeTargetGrants(env, "image", id);
   return json({ published: true });
 }
@@ -903,7 +910,10 @@ export async function renameImage(
   return json({ renamed: true, title });
 }
 
-async function associatePublicImageWithServer(env: CloudflareEnv, id: string): Promise<void> {
+async function associatePublicImageWithServer(
+  env: CloudflareEnv,
+  id: string,
+): Promise<string | null> {
   const metadata = await env.DB.prepare("SELECT server_address FROM images WHERE id = ?")
     .bind(id)
     .first<{ server_address: string | null }>();
@@ -915,6 +925,21 @@ async function associatePublicImageWithServer(env: CloudflareEnv, id: string): P
   )
     .bind(serverId, parsed?.hostAscii ?? null, parsed?.port ?? null, id)
     .run();
+  return serverId;
+}
+
+async function notifyPublishedImageSafely(env: CloudflareEnv, id: string): Promise<void> {
+  try {
+    await notifyDiscordWebhooksForPublishedImage(env, id);
+  } catch (error) {
+    console.error(
+      "discord_webhook_dispatch_failed",
+      JSON.stringify({
+        imageId: id,
+        error: error instanceof Error ? error.message.slice(0, 200) : "unknown",
+      }),
+    );
+  }
 }
 
 export async function logout(request: Request, env: CloudflareEnv): Promise<Response> {

@@ -1,6 +1,7 @@
 # 32文字以上のランダム値へ置き換えて .dev.vars として保存してください。
 NEXTJS_ENV=development
 RATE_LIMIT_SALT=replace-with-a-random-secret-at-least-32-characters
+WEBHOOK_ENCRYPTION_KEY=replace-with-a-different-random-secret-at-least-32-characters
 TURNSTILE_SITE_KEY=1x00000000000000000000AA
 TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
 AWS_ACCESS_KEY_ID=

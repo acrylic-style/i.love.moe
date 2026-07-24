@@ -10,6 +10,7 @@ describe("plan limits", () => {
       imagesPerAlbum: 20,
       protectedSharing: false,
       libraryOrganization: false,
+      serverDiscordWebhooks: 1,
     });
   });
 
@@ -21,6 +22,7 @@ describe("plan limits", () => {
       imagesPerAlbum: 200,
       protectedSharing: true,
       libraryOrganization: true,
+      serverDiscordWebhooks: 5,
     });
   });
 
