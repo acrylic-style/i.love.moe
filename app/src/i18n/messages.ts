@@ -240,7 +240,6 @@ const en: Record<string, string> = {
   "servers.sortNewest": "Newest",
   "servers.sortFavorites": "Most favorited",
   "servers.favorite": "Favorite",
-  "servers.favoriteIpNote": "Anonymous favorites are counted once per image and IP address.",
   "viewer.imagePreviewDescription": "A Minecraft screenshot shared with i.らぶ.moe.",
   "viewer.albumPreviewDescription": "A Minecraft screenshot album shared with i.らぶ.moe.",
   "viewer.albumEmpty": "This album has no images that are currently available.",
@@ -517,7 +516,6 @@ const ja: Record<string, string> = {
   "servers.sortNewest": "新着順",
   "servers.sortFavorites": "お気に入り数順",
   "servers.favorite": "お気に入り",
-  "servers.favoriteIpNote": "匿名のお気に入りは、画像ごとに同じIPアドレスから1票として数えます。",
   "viewer.imagePreviewDescription": "i.らぶ.moeで共有されたMinecraftのスクリーンショットです。",
   "viewer.albumPreviewDescription":
     "i.らぶ.moeで共有されたMinecraftのスクリーンショットアルバムです。",

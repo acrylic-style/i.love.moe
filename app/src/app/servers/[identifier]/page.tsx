@@ -154,7 +154,6 @@ export async function ServerGallery({
             </a>
           </div>
         </div>
-        <p className="text-sm text-muted-foreground">{t("servers.favoriteIpNote")}</p>
         {images.length === 0 ? (
           <p className="text-muted-foreground">{t("servers.noImages")}</p>
         ) : (
