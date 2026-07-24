@@ -31,7 +31,9 @@ export default async function HomePage() {
           <span>{t("home.beta")}</span>
           <a
             className={buttonVariants({ variant: "outline" })}
-            href="https://github.com/acrylic-style/i.love.moe"
+            href="https://github.com/acrylic-style/i.love.moe/releases"
+            target="_blank"
+            rel="noreferrer"
           >
             {t("home.download")}
           </a>

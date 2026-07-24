@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { SiteFooter } from "@/components/site-footer";
+import { SiteHeader } from "@/components/site-header";
 import { I18nProvider } from "@/i18n/client";
 import { getI18n } from "@/i18n/server";
 import "./globals.css";
@@ -23,7 +24,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body className="min-h-screen px-3 py-6 antialiased sm:px-6 sm:py-10">
         <I18nProvider locale={locale} preference={preference}>
           <div className="flex min-h-[calc(100vh-3rem)] flex-col sm:min-h-[calc(100vh-5rem)]">
-            <div className="flex-1">{children}</div>
+            <SiteHeader />
+            <div className="flex-1 pt-6 sm:pt-10">{children}</div>
             <SiteFooter legalNoticeUrl={legalNoticeUrl} />
           </div>
         </I18nProvider>

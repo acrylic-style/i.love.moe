@@ -2,6 +2,11 @@ import type { Locale } from "./config";
 
 const en: Record<string, string> = {
   "metadata.description": "Share Minecraft screenshots instantly with a short URL.",
+  "header.logoAlt": "i.らぶ.moe Mod icon",
+  "header.navigation": "Main navigation",
+  "header.guide": "How to use",
+  "header.download": "Download",
+  "header.downloadShort": "Get Mod",
   "common.back": "Back",
   "common.backHome": "Back to i.らぶ.moe",
   "common.backManage": "Dashboard",
@@ -41,6 +46,37 @@ const en: Record<string, string> = {
   "home.verifiedServersDescription": "Browse server pages whose ownership has been verified.",
   "home.viewVerifiedServers": "View all verified servers",
   "home.noVerifiedServers": "There are no verified server pages yet.",
+  "guide.metadataTitle": "How to use",
+  "guide.eyebrow": "Getting started",
+  "guide.title": "Upload a Minecraft screenshot",
+  "guide.description":
+    "Install the client-side Fabric Mod, take a screenshot, and share it from Minecraft.",
+  "guide.modRequiredTitle": "The Mod is required for uploads",
+  "guide.modRequiredDescription":
+    "To upload screenshots directly from Minecraft, install the i.らぶ.moe Fabric Mod on your Minecraft client. Nothing needs to be installed on the Minecraft server.",
+  "guide.requirementsTitle": "Before you start",
+  "guide.requirementFabric": "Install Fabric Loader and Fabric API.",
+  "guide.requirementVersions": "Choose the Mod file that matches your Minecraft version.",
+  "guide.requirementReview":
+    "Screenshots may contain chat or player names. Review the image before uploading it.",
+  "guide.stepsTitle": "Upload steps",
+  "guide.step1Title": "1. Download and install",
+  "guide.step1Description":
+    "Download the Mod from Modrinth and place the JAR, together with Fabric API, in your mods folder.",
+  "guide.step2Title": "2. Take a screenshot",
+  "guide.step2Description":
+    "Start Minecraft with Fabric and press F2. An Upload button appears in the chat message.",
+  "guide.step3Title": "3. Upload",
+  "guide.step3Description":
+    "Click Upload. Before the first upload, review and accept the notice about the Minecraft UUID and ID sent with the image.",
+  "guide.step4Title": "4. Share or manage",
+  "guide.step4Description":
+    "After the upload, the short URL is copied to your clipboard. Use /ilovemoe login to open the secure sign-in flow and manage the image on the website.",
+  "guide.plusTitle": "Automatic uploads with Plus",
+  "guide.plusDescription":
+    "Plus members can enable automatic F2 uploads with /ilovemoe auto-upload on.",
+  "guide.download": "Download from Modrinth",
+  "guide.viewPlus": "View Plus",
   "notFound.message": "The image or album could not be found, or its sharing period has ended.",
   "footer.legalNav": "Legal information",
   "footer.terms": "Terms of Service",
@@ -333,6 +369,11 @@ const en: Record<string, string> = {
 
 const ja: Record<string, string> = {
   "metadata.description": "Minecraftのスクリーンショットを、短いURLですぐ共有。",
+  "header.logoAlt": "i.らぶ.moe Modアイコン",
+  "header.navigation": "メインナビゲーション",
+  "header.guide": "使い方",
+  "header.download": "ダウンロード",
+  "header.downloadShort": "Mod入手",
   "common.back": "戻る",
   "common.backHome": "i.らぶ.moeへ戻る",
   "common.backManage": "管理画面",
@@ -374,6 +415,37 @@ const ja: Record<string, string> = {
   "home.verifiedServersDescription": "所有確認が完了しているサーバーページを見られます。",
   "home.viewVerifiedServers": "確認済みサーバーをすべて見る",
   "home.noVerifiedServers": "確認済みのサーバーページはまだありません。",
+  "guide.metadataTitle": "使い方",
+  "guide.eyebrow": "はじめに",
+  "guide.title": "Minecraftのスクリーンショットをアップロード",
+  "guide.description":
+    "クライアント側のFabric Modを導入し、Minecraftからスクリーンショットを共有します。",
+  "guide.modRequiredTitle": "アップロードにはModの導入が必要です",
+  "guide.modRequiredDescription":
+    "Minecraftからスクリーンショットを直接アップロードするには、Minecraftクライアントへi.らぶ.moe Fabric Modを導入してください。Minecraftサーバー側への導入は必要ありません。",
+  "guide.requirementsTitle": "用意するもの",
+  "guide.requirementFabric": "Fabric LoaderとFabric APIを導入します。",
+  "guide.requirementVersions": "Minecraftのバージョンに合うModファイルを選びます。",
+  "guide.requirementReview":
+    "画像にはチャットやプレイヤー名が含まれる場合があります。アップロード前に内容を確認してください。",
+  "guide.stepsTitle": "アップロード手順",
+  "guide.step1Title": "1. ダウンロードして導入",
+  "guide.step1Description":
+    "ModrinthからModをダウンロードし、Fabric APIと一緒にmodsフォルダへJARを入れます。",
+  "guide.step2Title": "2. スクリーンショットを撮影",
+  "guide.step2Description":
+    "FabricでMinecraftを起動してF2を押します。チャットメッセージに「アップロード」ボタンが表示されます。",
+  "guide.step3Title": "3. アップロード",
+  "guide.step3Description":
+    "「アップロード」を押します。初回だけ、画像と一緒に送信するMinecraft UUID・IDの案内を確認して同意します。",
+  "guide.step4Title": "4. 共有・管理",
+  "guide.step4Description":
+    "アップロードが終わると短縮URLがクリップボードへコピーされます。/ilovemoe loginから安全なログイン画面を開くと、Webサイトで画像を管理できます。",
+  "guide.plusTitle": "Plusの自動アップロード",
+  "guide.plusDescription":
+    "Plusでは /ilovemoe auto-upload on を実行すると、F2撮影後の自動アップロードを利用できます。",
+  "guide.download": "Modrinthからダウンロード",
+  "guide.viewPlus": "Plusを見る",
   "notFound.message": "画像またはアルバムが見つからないか、公開期間が終了しています。",
   "footer.legalNav": "法的情報",
   "footer.terms": "利用規約",

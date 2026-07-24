@@ -36,6 +36,12 @@ export default {
         308,
       );
 
+    if (url.pathname === "/guide" || url.pathname === "/plus") {
+      const destination = new URL(url.pathname, env.PUBLIC_BASE_URL);
+      destination.search = url.search;
+      return Response.redirect(destination.toString(), 308);
+    }
+
     if (url.pathname === "/") {
       url.pathname = `/servers/domain/${encodeURIComponent(hostname)}`;
       return openNextWorker.fetch(copyRequest(request, url), env, context);
