@@ -60,6 +60,8 @@ Checkout作成の冪等性キーには仕様バージョンを含めます。Che
 
 公開ギャラリーは24枚ずつ表示し、新着順とお気に入り数順を切り替えられます。匿名のお気に入りは`CF-Connecting-IP`を`RATE_LIMIT_SALT`でHMAC化した値を使い、同一IP・同一画像につき1票として保存します。生のIPアドレスはお気に入り用テーブルへ保存しません。管理画面の公開フィードも24枚ずつ表示し、掲載中・非表示・注目画像で絞り込めます。
 
+トップページには確認済みサーバーを最大6件表示し、確認済みだけの一覧へ移動できます。確認済みサーバー自体にも、画像と同じIPハッシュ単位でお気に入りできます。
+
 独自ドメインは`moe.pictures`ゾーンで次のように設定します。
 
 1. `fallback.moe.pictures`へ値`100::`のoriginless `AAAA`レコードを作る。
@@ -83,6 +85,8 @@ Checkout作成の冪等性キーには仕様バージョンを含めます。Che
 - `POST /api/v1/images`: Bearerトークン付きでPNGをアップロード。Modは任意で撮影サーバー名・アドレスをBase64URLヘッダーへ添付
   - レスポンスの`url`はWeb用の正規URL、`minecraftUrl`はMinecraftのチャット表示・コピー用URL
 - `GET /api/v1/images`: 所有画像の一覧
+- `POST /api/v1/images/{id}/publish`: 端末が所有する画像を一般公開へ変更。無料プランでも利用可能
+- `POST /api/v1/images/{id}/rename`: 端末が所有する画像のタイトルを変更
 - `DELETE /api/v1/images/{id}`: 所有画像を削除
 - `POST /api/v1/auth/browser-login`: 端末に紐づく一度限りのログインフォームURLを発行
 - `POST /auth/browser-login`: Turnstile検証後にマジックリンクを送信

@@ -4,14 +4,14 @@ import { useState } from "react";
 import { Heart, LoaderCircle } from "lucide-react";
 import { Button } from "./ui/button";
 
-export function ServerImageFavorite({
-  imageId,
+export function FavoriteButton({
+  endpoint,
   initialCount,
   initialFavorited,
   label,
   failedLabel,
 }: {
-  imageId: string;
+  endpoint: string;
   initialCount: number;
   initialFavorited: boolean;
   label: string;
@@ -29,10 +29,7 @@ export function ServerImageFavorite({
     const form = new FormData();
     form.set("favorited", favorited ? "0" : "1");
     try {
-      const response = await fetch(`/servers/favorites/${imageId}`, {
-        method: "POST",
-        body: form,
-      });
+      const response = await fetch(endpoint, { method: "POST", body: form });
       const body = (await response.json().catch(() => null)) as {
         favorited?: boolean;
         count?: number;

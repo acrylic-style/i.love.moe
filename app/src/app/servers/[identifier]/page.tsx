@@ -5,7 +5,7 @@ import { activeCustomDomainForServer } from "@/custom-domains";
 import { getEnv } from "@/cloudflare";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ServerImageFavorite } from "@/components/server-image-favorite";
+import { FavoriteButton } from "@/components/favorite-button";
 import { VerifiedMark } from "@/components/verified-mark";
 import { getI18n } from "@/i18n/server";
 import {
@@ -173,8 +173,8 @@ export async function ServerGallery({
                   <a className="min-w-0 truncate" href={url(`/${image.code}`)}>
                     {image.title ?? image.code}
                   </a>
-                  <ServerImageFavorite
-                    imageId={image.id}
+                  <FavoriteButton
+                    endpoint={`/servers/favorites/${image.id}`}
                     initialCount={image.favorite_count}
                     initialFavorited={Boolean(image.viewer_favorited)}
                     label={t("servers.favorite")}

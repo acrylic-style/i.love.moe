@@ -37,6 +37,15 @@ public final class ILoveMoeClient implements ClientModInitializer {
                         .then(ClientCommands.literal("delete")
                                 .then(ClientCommands.argument("id", StringArgumentType.word())
                                         .executes(context -> delete(StringArgumentType.getString(context, "id")))))
+                        .then(ClientCommands.literal("publish")
+                                .then(ClientCommands.argument("id", StringArgumentType.word())
+                                        .executes(context -> publish(StringArgumentType.getString(context, "id")))))
+                        .then(ClientCommands.literal("rename")
+                                .then(ClientCommands.argument("id", StringArgumentType.word())
+                                        .then(ClientCommands.argument("title", StringArgumentType.greedyString())
+                                                .executes(context -> rename(
+                                                        StringArgumentType.getString(context, "id"),
+                                                        StringArgumentType.getString(context, "title"))))))
                         .then(ClientCommands.literal("login").executes(context -> login()))
                         .then(ClientCommands.literal("auto-upload")
                                 .executes(context -> showAutoUploadStatus())
@@ -105,10 +114,38 @@ public final class ILoveMoeClient implements ClientModInitializer {
                     .withClickEvent(new ClickEvent.SuggestCommand(displayUrl)));
             MutableComponent copy = Component.translatable("message.i_love_moe.action.copy").withStyle(style -> style.withColor(ChatFormatting.YELLOW)
                     .withClickEvent(new ClickEvent.CopyToClipboard(displayUrl)));
+            MutableComponent rename = Component.translatable("message.i_love_moe.action.rename").withStyle(style -> style.withColor(ChatFormatting.GOLD)
+                    .withClickEvent(new ClickEvent.SuggestCommand("/ilovemoe rename " + result.id + " ")));
+            MutableComponent publish = Component.translatable("message.i_love_moe.action.publish").withStyle(style -> style.withColor(ChatFormatting.LIGHT_PURPLE)
+                    .withClickEvent(new ClickEvent.RunCommand("/ilovemoe publish " + result.id)));
             MutableComponent delete = Component.translatable("message.i_love_moe.action.delete").withStyle(style -> style.withColor(ChatFormatting.RED)
                     .withClickEvent(new ClickEvent.RunCommand("/ilovemoe delete " + result.id)));
-            sendMessage(Component.translatable("message.i_love_moe.upload.success", open, insert, copy, delete));
+            sendMessage(Component.translatable("message.i_love_moe.upload.success", open, insert, copy, rename, publish, delete));
         }));
+    }
+
+    private static int rename(String imageId, String title) {
+        sendMessage(Component.translatable("message.i_love_moe.image.renaming").withStyle(ChatFormatting.GRAY));
+        api.rename(imageId, title).whenComplete((ignored, error) -> Minecraft.getInstance().execute(() -> {
+            if (error != null) {
+                sendError(apiError(error));
+                return;
+            }
+            sendMessage(Component.translatable("message.i_love_moe.image.renamed").withStyle(ChatFormatting.GREEN));
+        }));
+        return 1;
+    }
+
+    private static int publish(String imageId) {
+        sendMessage(Component.translatable("message.i_love_moe.image.publishing").withStyle(ChatFormatting.GRAY));
+        api.publish(imageId).whenComplete((ignored, error) -> Minecraft.getInstance().execute(() -> {
+            if (error != null) {
+                sendError(apiError(error));
+                return;
+            }
+            sendMessage(Component.translatable("message.i_love_moe.image.published").withStyle(ChatFormatting.GREEN));
+        }));
+        return 1;
     }
 
     private static int showAutoUploadStatus() {
@@ -189,6 +226,7 @@ public final class ILoveMoeClient implements ClientModInitializer {
             case "image_too_large" -> "message.i_love_moe.error.image_too_large";
             case "invalid_png", "invalid_image_type" -> "message.i_love_moe.error.invalid_png";
             case "invalid_server_metadata" -> "message.i_love_moe.error.invalid_server_metadata";
+            case "invalid_image_title" -> "message.i_love_moe.error.invalid_image_title";
             case "upload_limit_reached" -> "message.i_love_moe.error.upload_limit_reached";
             case "plus_required" -> "message.i_love_moe.error.plus_required";
             case "invalid_email" -> "message.i_love_moe.error.invalid_email";

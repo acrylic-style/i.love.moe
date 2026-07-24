@@ -4,11 +4,13 @@ import com.google.gson.Gson;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -54,6 +56,32 @@ final class ApiClient {
                     .build();
             return send(request).thenApply(response -> {
                 requireStatus(response, 204);
+                return null;
+            });
+        });
+    }
+
+    CompletableFuture<Void> publish(String imageId) {
+        return deviceToken().thenCompose(token -> {
+            HttpRequest request = authenticatedRequest("/api/v1/images/" + imageId + "/publish", token)
+                    .POST(HttpRequest.BodyPublishers.noBody())
+                    .build();
+            return send(request).thenApply(response -> {
+                requireStatus(response, 200);
+                return null;
+            });
+        });
+    }
+
+    CompletableFuture<Void> rename(String imageId, String title) {
+        return deviceToken().thenCompose(token -> {
+            String body = "title=" + URLEncoder.encode(title, StandardCharsets.UTF_8);
+            HttpRequest request = authenticatedRequest("/api/v1/images/" + imageId + "/rename", token)
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
+                    .build();
+            return send(request).thenApply(response -> {
+                requireStatus(response, 200);
                 return null;
             });
         });

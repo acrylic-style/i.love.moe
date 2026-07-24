@@ -80,6 +80,10 @@ export interface ServerDetail {
 
 export type PublicServerImageSort = "newest" | "favorites";
 export type ManagedServerImageFilter = "visible" | "hidden" | "featured";
+export type PublicServerListRow = ServerRow & {
+  favorite_count: number;
+  viewer_favorited: number;
+};
 
 interface ServerImageCursor {
   scope: "public" | "managed";
@@ -451,6 +455,50 @@ export async function updateServerImageFavorite(
   );
 }
 
+export async function updateServerFavorite(
+  request: Request,
+  env: CloudflareEnv,
+  serverId: string,
+): Promise<Response> {
+  if (!acceptsFormOrigin(request.headers.get("origin"), request.url))
+    return Response.json({ error: "invalid_origin" }, { status: 403 });
+  const voterIpHash = await serverFavoriteIpHash(env, request.headers);
+  if (!voterIpHash) return Response.json({ error: "favorite_unavailable" }, { status: 503 });
+  const form = await request.formData();
+  const favorited = form.get("favorited");
+  if (favorited !== "1" && favorited !== "0")
+    return Response.json({ error: "invalid_favorite_state" }, { status: 400 });
+  const server = await env.DB.prepare(
+    "SELECT id FROM servers WHERE id = ? AND verified_at IS NOT NULL",
+  )
+    .bind(serverId)
+    .first();
+  if (!server) return new Response(null, { status: 404 });
+  if (!(await consumeFavoriteAttempt(env, voterIpHash)))
+    return Response.json({ error: "rate_limited" }, { status: 429 });
+
+  if (favorited === "1") {
+    await env.DB.prepare(
+      "INSERT OR IGNORE INTO server_favorites (server_id, voter_ip_hash, created_at) VALUES (?, ?, ?)",
+    )
+      .bind(serverId, voterIpHash, Date.now())
+      .run();
+  } else {
+    await env.DB.prepare("DELETE FROM server_favorites WHERE server_id = ? AND voter_ip_hash = ?")
+      .bind(serverId, voterIpHash)
+      .run();
+  }
+  const count = await env.DB.prepare(
+    "SELECT COUNT(*) AS count FROM server_favorites WHERE server_id = ?",
+  )
+    .bind(serverId)
+    .first<{ count: number }>();
+  return Response.json(
+    { favorited: favorited === "1", count: count?.count ?? 0 },
+    { headers: { "cache-control": "no-store" } },
+  );
+}
+
 async function consumeFavoriteAttempt(env: CloudflareEnv, voterIpHash: string): Promise<boolean> {
   const now = Date.now();
   const windowStart = now - 60 * 60 * 1000;
@@ -473,20 +521,41 @@ async function consumeFavoriteAttempt(env: CloudflareEnv, voterIpHash: string): 
   return (result.meta.changes ?? 0) === 1;
 }
 
-export async function listPublicServers(env: CloudflareEnv, query: string): Promise<ServerRow[]> {
+export async function listPublicServers(
+  env: CloudflareEnv,
+  query: string,
+  options: { verifiedOnly?: boolean; limit?: number; voterIpHash?: string | null } = {},
+): Promise<PublicServerListRow[]> {
   const q = `%${query.trim().slice(0, 100).replaceAll("%", "\\%").replaceAll("_", "\\_")}%`;
+  const bindings: unknown[] = options.voterIpHash ? [options.voterIpHash] : [];
+  bindings.push(
+    Date.now(),
+    options.verifiedOnly ? 1 : 0,
+    q,
+    q,
+    q,
+    Math.max(1, Math.min(options.limit ?? 50, 50)),
+  );
   const rows = await env.DB.prepare(
-    `SELECT s.*, a.host_ascii, a.port, a.display_address FROM servers s
+    `SELECT s.*, a.host_ascii, a.port, a.display_address,
+      (SELECT COUNT(*) FROM server_favorites sf WHERE sf.server_id = s.id) AS favorite_count,
+      ${
+        options.voterIpHash
+          ? "EXISTS(SELECT 1 FROM server_favorites vf WHERE vf.server_id = s.id AND vf.voter_ip_hash = ?)"
+          : "0"
+      } AS viewer_favorited
+      FROM servers s
       JOIN server_addresses a ON a.server_id = s.id AND a.is_primary = 1
       WHERE (s.owner_user_id IS NOT NULL OR EXISTS (
         SELECT 1 FROM images i WHERE i.server_id = s.id AND i.discoverability = 'public'
           AND i.deleted_at IS NULL AND i.expires_at > ?
-      )) AND (? = '%%' OR s.display_name LIKE ? ESCAPE '\\' COLLATE NOCASE
+      )) AND (? = 0 OR s.verified_at IS NOT NULL)
+      AND (? = '%%' OR s.display_name LIKE ? ESCAPE '\\' COLLATE NOCASE
         OR a.display_address LIKE ? ESCAPE '\\' COLLATE NOCASE)
-      ORDER BY COALESCE(s.verified_at, 0) DESC, s.updated_at DESC LIMIT 50`,
+      ORDER BY (s.verified_at IS NOT NULL) DESC, favorite_count DESC, s.updated_at DESC LIMIT ?`,
   )
-    .bind(Date.now(), q, q, q)
-    .all<ServerRow>();
+    .bind(...bindings)
+    .all<PublicServerListRow>();
   return rows.results;
 }
 

@@ -602,20 +602,64 @@ export async function updateManagedImageVisibility(
     .bind(visibility, discoverability, salt, hash, iterations, id, session.user_id)
     .run();
   if (discoverability === "public") {
-    const metadata = await env.DB.prepare("SELECT server_address FROM images WHERE id = ?")
-      .bind(id)
-      .first<{ server_address: string | null }>();
-    const { ensureServerForAddress, parseServerAddress } = await import("./servers");
-    const parsed = parseServerAddress(metadata?.server_address ?? null);
-    const serverId = await ensureServerForAddress(env, metadata?.server_address ?? null);
-    await env.DB.prepare(
-      "UPDATE images SET server_id = ?, server_host_ascii = ?, server_port = ? WHERE id = ?",
-    )
-      .bind(serverId, parsed?.hostAscii ?? null, parsed?.port ?? null, id)
-      .run();
+    await associatePublicImageWithServer(env, id);
   }
   await revokeTargetGrants(env, "image", id);
   return json({ saved: true, visibility, discoverability, hasPassphrase: Boolean(hash) });
+}
+
+export async function publishImage(
+  request: Request,
+  env: CloudflareEnv,
+  id: string,
+): Promise<Response> {
+  const device = await authenticateDevice(request, env);
+  if (!device) return apiError("unauthorized", 401);
+  const image = await findOwnedImage(env, id, device.id, device.user_id);
+  if (!image || image.deleted_at !== null || image.expires_at <= Date.now())
+    return apiError("not_found", 404);
+  await env.DB.prepare(
+    `UPDATE images SET visibility = 'unlisted', discoverability = 'public',
+      passphrase_salt = NULL, passphrase_hash = NULL, passphrase_iterations = NULL,
+      access_version = access_version + 1
+      WHERE id = ?`,
+  )
+    .bind(id)
+    .run();
+  await associatePublicImageWithServer(env, id);
+  await revokeTargetGrants(env, "image", id);
+  return json({ published: true });
+}
+
+export async function renameImage(
+  request: Request,
+  env: CloudflareEnv,
+  id: string,
+): Promise<Response> {
+  const device = await authenticateDevice(request, env);
+  if (!device) return apiError("unauthorized", 401);
+  const image = await findOwnedImage(env, id, device.id, device.user_id);
+  if (!image || image.deleted_at !== null || image.expires_at <= Date.now())
+    return apiError("not_found", 404);
+  const form = await request.formData();
+  const title = normalizeOptionalText(form.get("title"), 100);
+  if (title === undefined || title === null) return apiError("invalid_image_title", 400);
+  await env.DB.prepare("UPDATE images SET title = ? WHERE id = ?").bind(title, id).run();
+  return json({ renamed: true, title });
+}
+
+async function associatePublicImageWithServer(env: CloudflareEnv, id: string): Promise<void> {
+  const metadata = await env.DB.prepare("SELECT server_address FROM images WHERE id = ?")
+    .bind(id)
+    .first<{ server_address: string | null }>();
+  const { ensureServerForAddress, parseServerAddress } = await import("./servers");
+  const parsed = parseServerAddress(metadata?.server_address ?? null);
+  const serverId = await ensureServerForAddress(env, metadata?.server_address ?? null);
+  await env.DB.prepare(
+    "UPDATE images SET server_id = ?, server_host_ascii = ?, server_port = ? WHERE id = ?",
+  )
+    .bind(serverId, parsed?.hostAscii ?? null, parsed?.port ?? null, id)
+    .run();
 }
 
 export async function logout(request: Request, env: CloudflareEnv): Promise<Response> {
