@@ -10,6 +10,9 @@ export interface PlanLimits {
   imagesPerAlbum: number;
   protectedSharing: boolean;
   libraryOrganization: boolean;
+  serverBranding: boolean;
+  serverEditors: boolean;
+  customDomain: boolean;
 }
 
 export const FREE_PLAN: PlanLimits = {
@@ -20,6 +23,9 @@ export const FREE_PLAN: PlanLimits = {
   imagesPerAlbum: 20,
   protectedSharing: false,
   libraryOrganization: false,
+  serverBranding: false,
+  serverEditors: false,
+  customDomain: false,
 };
 
 export const PLUS_PLAN: PlanLimits = {
@@ -30,6 +36,9 @@ export const PLUS_PLAN: PlanLimits = {
   imagesPerAlbum: 200,
   protectedSharing: true,
   libraryOrganization: true,
+  serverBranding: true,
+  serverEditors: true,
+  customDomain: true,
 };
 
 export interface SubscriptionSummary {

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { findActiveAlbumByCode } from "@/albums";
 import { getEnv } from "@/cloudflare";
@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { PassphraseInput } from "@/components/passphrase-input";
 import { getI18n } from "@/i18n/server";
 import { buildOpenGraphImage } from "@/og";
+import { activeCustomDomainForServer } from "@/custom-domains";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +72,20 @@ export async function generateMetadata({
   if (!target || !target.allowed)
     return { title: t("viewer.sharePage"), robots: { index: false, follow: false } };
   const env = getEnv();
+  const requestHost = (await headers()).get("host")?.split(":")[0]?.toLowerCase();
+  const serverId =
+    target.type === "image"
+      ? (target.publicAlbum?.server_id ?? target.image.server_id)
+      : target.detail.album.server_id;
+  const discoverability =
+    target.type === "image"
+      ? (target.publicAlbum?.discoverability ?? target.image.discoverability)
+      : target.detail.album.discoverability;
+  const customDomain =
+    serverId && discoverability === "public"
+      ? await activeCustomDomainForServer(env, serverId)
+      : null;
+  const pageOrigin = customDomain ? `https://${customDomain}` : env.PUBLIC_BASE_URL;
   const title =
     target.type === "image"
       ? (target.image.title ?? t("viewer.imageTitle", { code }))
@@ -88,15 +103,10 @@ export async function generateMetadata({
   const previewImage =
     shareVisibility === "unlisted"
       ? target.type === "image"
-        ? buildOpenGraphImage(
-            env.PUBLIC_BASE_URL,
-            shareVisibility,
-            target.image,
-            target.publicAlbum?.code,
-          )
-        : buildOpenGraphImage(env.PUBLIC_BASE_URL, shareVisibility, target.detail.images[0], code)
+        ? buildOpenGraphImage(pageOrigin, shareVisibility, target.image, target.publicAlbum?.code)
+        : buildOpenGraphImage(pageOrigin, shareVisibility, target.detail.images[0], code)
       : undefined;
-  const pageUrl = new URL(`/${code}`, `${env.PUBLIC_BASE_URL.replace(/\/$/, "")}/`);
+  const pageUrl = new URL(`/${code}`, `${pageOrigin.replace(/\/$/, "")}/`);
   if (target.type === "image" && target.publicAlbum) {
     pageUrl.searchParams.set("album", target.publicAlbum.code);
   }
@@ -117,7 +127,11 @@ export async function generateMetadata({
       description,
       images: previewImage ? [previewImage.url] : undefined,
     },
-    robots: { index: false, follow: false },
+    alternates: { canonical: pageUrl.toString() },
+    robots: {
+      index: discoverability === "public" && (!customDomain || requestHost === customDomain),
+      follow: discoverability === "public",
+    },
   };
 }
 
@@ -134,6 +148,25 @@ export default async function ViewerPage({
   if (!SHORT_CODE_PATTERN.test(code)) notFound();
   const target = await resolveTarget(code, (await headers()).get("cookie"), query.album);
   if (!target) notFound();
+  const env = getEnv();
+  const requestHost = (await headers()).get("host")?.split(":")[0]?.toLowerCase();
+  const serverId =
+    target.type === "image"
+      ? (target.publicAlbum?.server_id ?? target.image.server_id)
+      : target.detail.album.server_id;
+  const discoverability =
+    target.type === "image"
+      ? (target.publicAlbum?.discoverability ?? target.image.discoverability)
+      : target.detail.album.discoverability;
+  if (serverId && discoverability === "public") {
+    const customDomain = await activeCustomDomainForServer(env, serverId);
+    if (customDomain && requestHost !== customDomain) {
+      const url = new URL(`/${code}`, `https://${customDomain}`);
+      if (target.type === "image" && target.publicAlbum)
+        url.searchParams.set("album", target.publicAlbum.code);
+      redirect(url.toString());
+    }
+  }
   if (!target.allowed) {
     const visibility =
       target.type === "image" ? target.image.visibility : target.detail.album.visibility;
@@ -178,6 +211,11 @@ export default async function ViewerPage({
                         <ServerMetadata
                           name={albumImage.server_name}
                           address={albumImage.server_address}
+                          href={
+                            albumImage.server_id
+                              ? `${getEnv().PUBLIC_BASE_URL}/servers/by-id/${albumImage.server_id}`
+                              : undefined
+                          }
                           compact
                         />
                       </figcaption>
@@ -227,7 +265,15 @@ export default async function ViewerPage({
             </span>
           </div>
           <div className="mt-4">
-            <ServerMetadata name={image.server_name} address={image.server_address} />
+            <ServerMetadata
+              name={image.server_name}
+              address={image.server_address}
+              href={
+                image.server_id
+                  ? `${getEnv().PUBLIC_BASE_URL}/servers/by-id/${image.server_id}`
+                  : undefined
+              }
+            />
           </div>
         </CardContent>
       </Card>

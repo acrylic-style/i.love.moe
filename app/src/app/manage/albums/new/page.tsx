@@ -6,6 +6,7 @@ import { getEnv } from "@/cloudflare";
 import { authenticateSessionToken, managedImages } from "@/service";
 import { planLimits } from "@/plans";
 import { getI18n } from "@/i18n/server";
+import { managedServers } from "@/servers";
 
 export const dynamic = "force-dynamic";
 
@@ -28,9 +29,10 @@ export default async function NewAlbumPage({
         </Card>
       </main>
     );
-  const [images, limits] = await Promise.all([
+  const [images, limits, servers] = await Promise.all([
     managedImages(env, session.user_id),
     planLimits(env, session.user_id),
+    managedServers(env, session.user_id),
   ]);
   const { error } = await searchParams;
   return (
@@ -51,6 +53,7 @@ export default async function NewAlbumPage({
             submitLabel={t("album.createSubmit")}
             allowProtected={limits.protectedSharing}
             maxImages={limits.imagesPerAlbum}
+            servers={servers}
           />
         </CardContent>
       </Card>

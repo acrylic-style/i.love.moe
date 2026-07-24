@@ -213,6 +213,7 @@ export function ImageLibrary({
             value={filters.visibility}
             emptyLabel={t("library.allVisibility")}
             options={[
+              { value: "public", label: t("visibility.public") },
               { value: "unlisted", label: t("visibility.unlisted") },
               { value: "private", label: t("visibility.private") },
               { value: "passphrase", label: t("visibility.passphrase") },
@@ -348,7 +349,7 @@ export function ImageLibrary({
                 <div>
                   <h2 className="truncate font-semibold">{image.title ?? t("common.untitled")}</h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {visibilityLabel(image.visibility, t)} ·{" "}
+                    {visibilityLabel(image.visibility, image.discoverability, t)} ·{" "}
                     <LocalDateTime value={new Date(image.created_at).toISOString()} />
                   </p>
                 </div>
@@ -704,8 +705,10 @@ function ColorSelect({
 
 function visibilityLabel(
   visibility: Visibility,
+  discoverability: "hidden" | "public",
   t: (key: string, values?: Record<string, string | number>) => string,
 ) {
+  if (visibility === "unlisted" && discoverability === "public") return t("visibility.public");
   return t(`visibility.${visibility}`);
 }
 

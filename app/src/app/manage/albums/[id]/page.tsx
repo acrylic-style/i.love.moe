@@ -9,6 +9,7 @@ import { getEnv } from "@/cloudflare";
 import { authenticateSessionToken, managedImages } from "@/service";
 import { planLimits } from "@/plans";
 import { getI18n } from "@/i18n/server";
+import { managedServers } from "@/servers";
 
 export const dynamic = "force-dynamic";
 
@@ -24,10 +25,11 @@ export default async function EditAlbumPage({
   const env = getEnv();
   const session = await authenticateSessionToken((await cookies()).get("session")?.value, env);
   if (!session) notFound();
-  const [detail, images, limits] = await Promise.all([
+  const [detail, images, limits, servers] = await Promise.all([
     managedAlbumDetail(env, session.user_id, id),
     managedImages(env, session.user_id),
     planLimits(env, session.user_id),
+    managedServers(env, session.user_id),
   ]);
   if (!detail) notFound();
   const { error } = await searchParams;
@@ -68,6 +70,7 @@ export default async function EditAlbumPage({
             submitLabel={t("album.save")}
             allowProtected={limits.protectedSharing}
             maxImages={limits.imagesPerAlbum}
+            servers={servers}
           />
           <AlbumOrderEditor
             albumId={id}

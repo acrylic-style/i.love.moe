@@ -20,7 +20,7 @@ export interface LibraryFilters {
   q: string;
   tag: string;
   server: string;
-  visibility: "" | "unlisted" | "private" | "passphrase";
+  visibility: "" | "public" | "unlisted" | "private" | "passphrase";
   favorite: boolean;
   from: number | null;
   to: number | null;
@@ -64,7 +64,10 @@ export function parseLibraryFilters(
     tag: one("tag").slice(0, 64),
     server: one("server").slice(0, 255),
     visibility:
-      visibility === "unlisted" || visibility === "private" || visibility === "passphrase"
+      visibility === "public" ||
+      visibility === "unlisted" ||
+      visibility === "private" ||
+      visibility === "passphrase"
         ? visibility
         : "",
     favorite: one("favorite") === "1",
@@ -150,8 +153,14 @@ export async function imageLibrary(
     bindings.push(filters.server, filters.server);
   }
   if (filters.visibility) {
-    clauses.push("i.visibility = ?");
-    bindings.push(filters.visibility);
+    if (filters.visibility === "public") {
+      clauses.push("i.visibility = 'unlisted' AND i.discoverability = 'public'");
+    } else if (filters.visibility === "unlisted") {
+      clauses.push("i.visibility = 'unlisted' AND i.discoverability = 'hidden'");
+    } else {
+      clauses.push("i.visibility = ?");
+      bindings.push(filters.visibility);
+    }
   }
   if (filters.favorite) clauses.push("i.favorited_at IS NOT NULL");
   if (filters.from !== null) {
@@ -186,7 +195,7 @@ export async function imageLibrary(
   const rows = await env.DB.prepare(
     `SELECT i.id, i.title, i.server_address, i.server_name, i.r2_key, i.byte_size,
       i.width, i.height, i.created_at, i.expires_at, i.deleted_at, i.visibility,
-      i.access_version, i.storage_tier, i.favorited_at, s.code
+      i.discoverability, i.server_id, i.access_version, i.storage_tier, i.favorited_at, s.code
     FROM images i
     JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id
     WHERE ${clauses.join(" AND ")}

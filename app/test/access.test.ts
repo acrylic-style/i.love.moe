@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { createPassphraseRecord, parseVisibility, validPassphrase } from "../src/access";
+import {
+  createPassphraseRecord,
+  parseShareMode,
+  parseVisibility,
+  validPassphrase,
+} from "../src/access";
 import { decodeBase64Url, pbkdf2Sha256, timingSafeEqual } from "../src/crypto";
 
 describe("share access helpers", () => {
@@ -8,6 +13,17 @@ describe("share access helpers", () => {
     expect(parseVisibility("private")).toBe("private");
     expect(parseVisibility("passphrase")).toBe("passphrase");
     expect(parseVisibility("public")).toBeNull();
+  });
+
+  it("keeps discovery separate from URL access", () => {
+    expect(parseShareMode("public")).toEqual({
+      visibility: "unlisted",
+      discoverability: "public",
+    });
+    expect(parseShareMode("unlisted")).toEqual({
+      visibility: "unlisted",
+      discoverability: "hidden",
+    });
   });
 
   it("validates passphrase length by Unicode characters", () => {

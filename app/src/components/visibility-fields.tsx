@@ -3,22 +3,31 @@
 import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { PassphraseInput } from "@/components/passphrase-input";
-import type { Visibility } from "@/types";
+import type { Discoverability, Visibility } from "@/types";
+
+type ShareMode = Visibility | "public";
 import { useI18n } from "@/i18n/client";
 
 export function VisibilityFields({
   initialVisibility = "unlisted",
+  initialDiscoverability = "hidden",
   hasPassphrase = false,
   idPrefix = "share",
   allowProtected = true,
 }: {
   initialVisibility?: Visibility;
+  initialDiscoverability?: Discoverability;
   hasPassphrase?: boolean;
   idPrefix?: string;
   allowProtected?: boolean;
 }) {
   const { t } = useI18n();
-  const options: Array<{ value: Visibility; label: string; description: string }> = [
+  const options: Array<{ value: ShareMode; label: string; description: string }> = [
+    {
+      value: "public",
+      label: t("visibility.public"),
+      description: t("visibility.publicDescription"),
+    },
     {
       value: "unlisted",
       label: t("visibility.unlisted"),
@@ -35,11 +44,15 @@ export function VisibilityFields({
       description: t("visibility.passphraseDescription"),
     },
   ];
-  const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
+  const initialMode: ShareMode =
+    initialVisibility === "unlisted" && initialDiscoverability === "public"
+      ? "public"
+      : initialVisibility;
+  const [visibility, setVisibility] = useState<ShareMode>(initialMode);
   return (
     <fieldset className="space-y-3 rounded-lg border p-4">
       <legend className="px-2 text-sm font-medium">{t("visibility.heading")}</legend>
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {options.map((option) => (
           <Label
             key={option.value}
@@ -53,7 +66,10 @@ export function VisibilityFields({
               checked={visibility === option.value}
               onChange={() => setVisibility(option.value)}
               disabled={
-                !allowProtected && option.value !== "unlisted" && option.value !== initialVisibility
+                !allowProtected &&
+                option.value !== "unlisted" &&
+                option.value !== "public" &&
+                option.value !== initialMode
               }
             />
             <span>

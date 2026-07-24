@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { CheckIcon, LoaderCircleIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VisibilityFields } from "@/components/visibility-fields";
-import type { Visibility } from "@/types";
+import type { Discoverability, Visibility } from "@/types";
 import { useI18n } from "@/i18n/client";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -13,11 +13,13 @@ type SaveState = "idle" | "saving" | "saved" | "error";
 export function ImageVisibilityForm({
   imageId,
   initialVisibility,
+  initialDiscoverability,
   hasPassphrase,
   allowProtected = true,
 }: {
   imageId: string;
   initialVisibility: Visibility;
+  initialDiscoverability: Discoverability;
   hasPassphrase: boolean;
   allowProtected?: boolean;
 }) {
@@ -61,6 +63,7 @@ export function ImageVisibilityForm({
     <form className="space-y-3" onSubmit={submit}>
       <VisibilityFields
         initialVisibility={initialVisibility}
+        initialDiscoverability={initialDiscoverability}
         hasPassphrase={hasPassphrase}
         idPrefix={`image-${imageId}`}
         allowProtected={allowProtected}

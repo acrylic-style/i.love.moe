@@ -6,6 +6,9 @@ interface Env {
   DB: D1Database;
   IMAGES: R2Bucket;
   RETENTION_QUEUE: Queue<RetentionMessage>;
+  CLOUDFLARE_SAAS_API_TOKEN: string;
+  CLOUDFLARE_SAAS_ZONE_ID: string;
+  STRIPE_PLUS_PRICE_ID: string;
 }
 
 interface JobRow {
@@ -42,6 +45,7 @@ export default {
         WHERE status IN ('pending', 'failed') AND attempts < 5 ORDER BY updated_at LIMIT 100`,
     ).all<{ image_id: string }>();
     for (const job of jobs.results) await env.RETENTION_QUEUE.send({ imageId: job.image_id });
+    await reconcileCustomDomains(env);
   },
 };
 
@@ -115,6 +119,130 @@ async function migrateImage(message: Message<RetentionMessage>, env: Env): Promi
     if (attempts >= 5) message.ack();
     else message.retry({ delaySeconds: Math.min(300, 2 ** attempts * 10) });
   }
+}
+
+interface DomainRow {
+  id: string;
+  cloudflare_hostname_id: string | null;
+  status: "pending" | "active" | "grace" | "error" | "deprovisioned";
+  hostname_status: string | null;
+  ssl_status: string | null;
+  updated_at: number;
+  grace_ends_at: number | null;
+  stripe_price_id: string | null;
+  subscription_status: string | null;
+  current_period_end: number | null;
+  grace_until: number | null;
+}
+
+async function reconcileCustomDomains(env: Env): Promise<void> {
+  const rows = await env.DB.prepare(
+    `SELECT d.id, d.cloudflare_hostname_id, d.status, d.hostname_status, d.ssl_status,
+      d.updated_at, d.grace_ends_at, sub.stripe_price_id,
+      sub.status AS subscription_status, sub.current_period_end, sub.grace_until
+    FROM server_custom_domains d
+    JOIN servers s ON s.id = d.server_id
+    LEFT JOIN subscriptions sub ON sub.user_id = s.owner_user_id
+    WHERE d.status != 'deprovisioned'
+    ORDER BY d.updated_at LIMIT 100`,
+  ).all<DomainRow>();
+  const now = Date.now();
+  for (const row of rows.results) {
+    const entitled =
+      row.stripe_price_id === env.STRIPE_PLUS_PRICE_ID &&
+      (((row.subscription_status === "active" || row.subscription_status === "trialing") &&
+        (row.current_period_end ?? 0) > now) ||
+        (row.subscription_status === "past_due" && (row.grace_until ?? 0) > now));
+    if (!entitled && row.status !== "grace") {
+      await env.DB.prepare(
+        "UPDATE server_custom_domains SET status = 'grace', grace_ends_at = ?, updated_at = ? WHERE id = ?",
+      )
+        .bind(now + 30 * 24 * 60 * 60 * 1000, now, row.id)
+        .run();
+      continue;
+    }
+    if (entitled && row.status === "grace") {
+      await env.DB.prepare(
+        `UPDATE server_custom_domains SET status = CASE
+          WHEN hostname_status = 'active' AND ssl_status = 'active' THEN 'active'
+          ELSE 'pending' END, grace_ends_at = NULL, updated_at = ? WHERE id = ?`,
+      )
+        .bind(now, row.id)
+        .run();
+      continue;
+    }
+    if (row.status === "grace" && (row.grace_ends_at ?? 0) <= now && row.cloudflare_hostname_id) {
+      const deleted = await cloudflareHostnameRequest(env, row.cloudflare_hostname_id, "DELETE");
+      if (deleted)
+        await env.DB.prepare(
+          `UPDATE server_custom_domains SET status = 'deprovisioned',
+            cloudflare_hostname_id = NULL, updated_at = ? WHERE id = ?`,
+        )
+          .bind(now, row.id)
+          .run();
+      continue;
+    }
+    if (
+      entitled &&
+      (row.status === "pending" || row.status === "error") &&
+      row.updated_at < now - 10 * 60 * 1000 &&
+      row.cloudflare_hostname_id
+    ) {
+      const hostname = await cloudflareHostname(env, row.cloudflare_hostname_id);
+      if (!hostname) continue;
+      const hostnameStatus = hostname.status ?? "pending";
+      const sslStatus = hostname.ssl?.status ?? "pending";
+      await env.DB.prepare(
+        `UPDATE server_custom_domains SET status = ?, hostname_status = ?, ssl_status = ?,
+          validation_records_json = ?, last_error = ?, updated_at = ? WHERE id = ?`,
+      )
+        .bind(
+          hostnameStatus === "active" && sslStatus === "active" ? "active" : "pending",
+          hostnameStatus,
+          sslStatus,
+          JSON.stringify(
+            [hostname.ownership_verification, ...(hostname.ssl?.validation_records ?? [])].filter(
+              Boolean,
+            ),
+          ),
+          hostname.ssl?.validation_errors?.map((error) => error.message).join("; ") || null,
+          now,
+          row.id,
+        )
+        .run();
+    }
+  }
+}
+
+interface CloudflareHostname {
+  status?: string;
+  ownership_verification?: unknown;
+  ssl?: {
+    status?: string;
+    validation_records?: unknown[];
+    validation_errors?: Array<{ message?: string }>;
+  };
+}
+
+async function cloudflareHostname(env: Env, id: string): Promise<CloudflareHostname | null> {
+  const response = await fetch(
+    `https://api.cloudflare.com/client/v4/zones/${env.CLOUDFLARE_SAAS_ZONE_ID}/custom_hostnames/${id}`,
+    { headers: { authorization: `Bearer ${env.CLOUDFLARE_SAAS_API_TOKEN}` } },
+  );
+  if (!response.ok) return null;
+  const body = (await response.json()) as { success?: boolean; result?: CloudflareHostname };
+  return body.success ? (body.result ?? null) : null;
+}
+
+async function cloudflareHostnameRequest(env: Env, id: string, method: "DELETE"): Promise<boolean> {
+  const response = await fetch(
+    `https://api.cloudflare.com/client/v4/zones/${env.CLOUDFLARE_SAAS_ZONE_ID}/custom_hostnames/${id}`,
+    {
+      method,
+      headers: { authorization: `Bearer ${env.CLOUDFLARE_SAAS_API_TOKEN}` },
+    },
+  );
+  return response.ok;
 }
 
 async function completeJob(env: Env, imageId: string): Promise<void> {

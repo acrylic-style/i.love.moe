@@ -16,6 +16,10 @@ declare global {
     STRIPE_SECRET_KEY: string;
     STRIPE_WEBHOOK_SECRET: string;
     STRIPE_PLUS_PRICE_ID: string;
+    CLOUDFLARE_SAAS_API_TOKEN?: string;
+    CLOUDFLARE_SAAS_ZONE_ID?: string;
+    SAAS_CNAME_TARGET?: string;
+    SAAS_FALLBACK_ORIGIN?: string;
     LEGAL_NOTICE_URL: string;
   }
 }

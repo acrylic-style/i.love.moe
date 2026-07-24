@@ -1,12 +1,13 @@
 import { allocateShortCode, authenticateSession, normalizeOptionalText } from "./service";
 import {
   createPassphraseRecord,
-  parseVisibility,
+  parseShareMode,
   revokeTargetGrants,
   validPassphrase,
 } from "./access";
 import type { AlbumImageRow, AlbumRow, ImageRow } from "./types";
 import { planLimits, PLUS_PLAN } from "./plans";
+import { canManageServer } from "./servers";
 
 export interface AlbumDetail {
   album: AlbumRow;
@@ -16,7 +17,7 @@ export interface AlbumDetail {
 export async function managedAlbums(env: CloudflareEnv, userId: string): Promise<AlbumRow[]> {
   const rows = await env.DB.prepare(
     `SELECT a.id, a.owner_user_id, a.title, a.description, a.created_at,
-      a.updated_at, a.deleted_at, a.visibility, a.access_version,
+      a.updated_at, a.deleted_at, a.visibility, a.discoverability, a.server_id, a.access_version,
       (a.passphrase_hash IS NOT NULL) AS has_passphrase, s.code,
       (SELECT sl.code FROM album_images ai
         JOIN images i ON i.id = ai.image_id
@@ -50,7 +51,7 @@ export async function findActiveAlbumByCode(
 ): Promise<AlbumDetail | null> {
   const album = await env.DB.prepare(
     `SELECT a.id, a.owner_user_id, a.title, a.description, a.created_at,
-      a.updated_at, a.deleted_at, a.visibility, a.access_version, s.code
+      a.updated_at, a.deleted_at, a.visibility, a.discoverability, a.server_id, a.access_version, s.code
     FROM short_links s JOIN albums a ON a.id = s.target_id
     WHERE s.code = ? AND s.target_type = 'album' AND s.retired_at IS NULL AND a.deleted_at IS NULL`,
   )
@@ -67,18 +68,21 @@ export async function createAlbum(request: Request, env: CloudflareEnv): Promise
   const title = requiredText(form.get("title"), 100);
   const description = normalizeOptionalText(form.get("description"), 1000);
   const imageIds = uniqueStrings(form.getAll("imageIds"));
-  const visibility = parseVisibility(form.get("visibility"));
+  const share = parseShareMode(form.get("visibility"));
   const passphrase = form.get("passphrase");
+  const serverId = optionalId(form.get("serverId"));
   const limits = await planLimits(env, session.user_id);
-  if (!visibility || (visibility === "passphrase" && !validPassphrase(passphrase))) {
+  if (!share || (share.visibility === "passphrase" && !validPassphrase(passphrase))) {
     return formError("/manage/albums/new", "invalid_access");
   }
+  const { visibility, discoverability } = share;
   if (visibility !== "unlisted" && !limits.protectedSharing)
     return formError("/manage/albums/new", "plus_required");
   if (
     !title ||
     description === undefined ||
     imageIds === null ||
+    serverId === undefined ||
     imageIds.length > limits.imagesPerAlbum
   ) {
     return formError("/manage/albums/new", "invalid_album");
@@ -86,6 +90,8 @@ export async function createAlbum(request: Request, env: CloudflareEnv): Promise
   if (!(await ownsAllImages(env, session.user_id, imageIds))) {
     return formError("/manage/albums/new", "invalid_images");
   }
+  if (serverId && !(await canManageServer(env, serverId, session.user_id)))
+    return formError("/manage/albums/new", "invalid_server");
   const count = await env.DB.prepare(
     "SELECT COUNT(*) AS count FROM albums WHERE owner_user_id = ? AND deleted_at IS NULL",
   )
@@ -104,9 +110,9 @@ export async function createAlbum(request: Request, env: CloudflareEnv): Promise
   const statements = [
     env.DB.prepare(
       `INSERT INTO albums
-      (id, owner_user_id, title, description, created_at, updated_at, visibility,
+      (id, owner_user_id, title, description, created_at, updated_at, visibility, discoverability, server_id,
         passphrase_salt, passphrase_hash, passphrase_iterations)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(
       id,
       session.user_id,
@@ -115,6 +121,8 @@ export async function createAlbum(request: Request, env: CloudflareEnv): Promise
       now,
       now,
       visibility,
+      discoverability,
+      discoverability === "public" ? serverId : null,
       passphraseRecord.passphrase_salt,
       passphraseRecord.passphrase_hash,
       passphraseRecord.passphrase_iterations,
@@ -146,18 +154,20 @@ export async function updateAlbum(
   const title = requiredText(form.get("title"), 100);
   const description = normalizeOptionalText(form.get("description"), 1000);
   const requestedIds = uniqueStrings(form.getAll("imageIds"));
-  const visibility = parseVisibility(form.get("visibility"));
+  const share = parseShareMode(form.get("visibility"));
   const passphrase = form.get("passphrase");
+  const serverId = optionalId(form.get("serverId"));
   const errorPath = `/manage/albums/${id}`;
   const limits = await planLimits(env, session.user_id);
   const changesPassphrase = typeof passphrase === "string" && passphrase.length > 0;
   if (
-    !visibility ||
-    (visibility === "passphrase" && !album.has_passphrase && !validPassphrase(passphrase)) ||
+    !share ||
+    (share.visibility === "passphrase" && !album.has_passphrase && !validPassphrase(passphrase)) ||
     (changesPassphrase && !validPassphrase(passphrase))
   ) {
     return formError(errorPath, "invalid_access");
   }
+  const { visibility, discoverability } = share;
   if (
     visibility !== "unlisted" &&
     !limits.protectedSharing &&
@@ -168,12 +178,15 @@ export async function updateAlbum(
     !title ||
     description === undefined ||
     requestedIds === null ||
+    serverId === undefined ||
     requestedIds.length > PLUS_PLAN.imagesPerAlbum
   ) {
     return formError(errorPath, "invalid_album");
   }
   if (!(await ownsAllImages(env, session.user_id, requestedIds)))
     return formError(errorPath, "invalid_images");
+  if (serverId && !(await canManageServer(env, serverId, session.user_id)))
+    return formError(errorPath, "invalid_server");
 
   const existing = await env.DB.prepare(
     "SELECT image_id, position FROM album_images WHERE album_id = ? ORDER BY position",
@@ -201,7 +214,10 @@ export async function updateAlbum(
   const retainedSet = new Set(retained);
   const orderedIds = [...retained, ...requestedIds.filter((imageId) => !retainedSet.has(imageId))];
   const now = Date.now();
-  const accessChanged = visibility !== album.visibility || changesPassphrase;
+  const accessChanged =
+    visibility !== album.visibility ||
+    discoverability !== album.discoverability ||
+    changesPassphrase;
   let passphraseRecord = {
     passphrase_salt: null as string | null,
     passphrase_hash: null as string | null,
@@ -222,7 +238,7 @@ export async function updateAlbum(
   }
   await env.DB.batch([
     env.DB.prepare(
-      `UPDATE albums SET title = ?, description = ?, updated_at = ?, visibility = ?,
+      `UPDATE albums SET title = ?, description = ?, updated_at = ?, visibility = ?, discoverability = ?, server_id = ?,
         passphrase_salt = ?, passphrase_hash = ?, passphrase_iterations = ?, access_version = ?
       WHERE id = ? AND owner_user_id = ? AND deleted_at IS NULL`,
     ).bind(
@@ -230,6 +246,8 @@ export async function updateAlbum(
       description,
       now,
       visibility,
+      discoverability,
+      discoverability === "public" ? serverId : null,
       passphraseRecord.passphrase_salt,
       passphraseRecord.passphrase_hash,
       passphraseRecord.passphrase_iterations,
@@ -328,7 +346,7 @@ async function ownedAlbum(
 ): Promise<AlbumRow | null> {
   return env.DB.prepare(
     `SELECT a.id, a.owner_user_id, a.title, a.description, a.created_at,
-      a.updated_at, a.deleted_at, a.visibility, a.access_version,
+      a.updated_at, a.deleted_at, a.visibility, a.discoverability, a.server_id, a.access_version,
       (a.passphrase_hash IS NOT NULL) AS has_passphrase, s.code
     FROM albums a JOIN short_links s ON s.target_type = 'album' AND s.target_id = a.id AND s.retired_at IS NULL
     WHERE a.id = ? AND a.owner_user_id = ? AND a.deleted_at IS NULL`,
@@ -340,7 +358,7 @@ async function ownedAlbum(
 async function albumImages(env: CloudflareEnv, albumId: string): Promise<AlbumImageRow[]> {
   const rows = await env.DB.prepare(
     `SELECT i.id, i.title, i.server_address, i.server_name, i.r2_key, i.byte_size, i.width, i.height,
-      i.created_at, i.expires_at, i.deleted_at, i.visibility, i.access_version, i.storage_tier, s.code, ai.position
+      i.created_at, i.expires_at, i.deleted_at, i.visibility, i.discoverability, i.server_id, i.access_version, i.storage_tier, s.code, ai.position
     FROM album_images ai JOIN images i ON i.id = ai.image_id
       JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id AND s.retired_at IS NULL
     WHERE ai.album_id = ? AND i.deleted_at IS NULL AND i.expires_at > ?
@@ -377,6 +395,11 @@ function uniqueStrings(values: unknown[]): string[] | null {
   const strings = values as string[];
   const unique = [...new Set(strings)];
   return unique.length === strings.length ? unique : null;
+}
+
+function optionalId(value: FormDataEntryValue | null): string | null | undefined {
+  if (value === null || value === "") return null;
+  return typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value) ? value : undefined;
 }
 
 function sameSet(left: string[], right: string[]): boolean {

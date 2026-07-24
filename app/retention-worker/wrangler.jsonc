@@ -3,6 +3,12 @@
   "name": "i-love-moe-retention",
   "main": "src/index.ts",
   "compatibility_date": "2026-07-22",
+  "vars": {
+    "STRIPE_PLUS_PRICE_ID": "price_1Tw3s8DuEzGgZNJftccZyYBy",
+  },
+  "secrets": {
+    "required": ["CLOUDFLARE_SAAS_API_TOKEN", "CLOUDFLARE_SAAS_ZONE_ID"],
+  },
   "d1_databases": [
     {
       "binding": "DB",

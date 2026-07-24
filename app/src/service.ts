@@ -3,7 +3,7 @@ import {
   authorizeAlbumForImage,
   authorizeTarget,
   createPassphraseRecord,
-  parseVisibility,
+  parseShareMode,
   revokeTargetGrants,
   validPassphrase,
 } from "./access";
@@ -124,6 +124,9 @@ export async function uploadImage(request: Request, env: CloudflareEnv): Promise
   const serverName = decodeMetadataHeader(request.headers.get("x-minecraft-server-name"), 100);
   if (serverAddress === undefined || serverName === undefined)
     return apiError("invalid_server_metadata", 400);
+  const parsedServerAddress = serverAddress
+    ? (await import("./servers")).parseServerAddress(serverAddress)
+    : null;
 
   const now = Date.now();
   const quotaStart = now - THIRTY_DAYS_MS;
@@ -164,8 +167,8 @@ export async function uploadImage(request: Request, env: CloudflareEnv): Promise
       env.DB.prepare(
         `INSERT INTO images
         (id, owner_device_id, owner_user_id, r2_key, byte_size, width, height, created_at, expires_at,
-          server_address, server_name, storage_tier)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          server_address, server_name, server_host_ascii, server_port, storage_tier)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         id,
         device.id,
@@ -178,6 +181,8 @@ export async function uploadImage(request: Request, env: CloudflareEnv): Promise
         expiresAt,
         serverAddress,
         serverName,
+        parsedServerAddress?.hostAscii ?? null,
+        parsedServerAddress?.port ?? null,
         storageTier,
       ),
       env.DB.prepare(
@@ -443,9 +448,33 @@ export async function serveRawImage(
   if (!SHORT_CODE_PATTERN.test(code)) return new Response(null, { status: 404 });
   const image = await findActiveImageByCode(env, code);
   if (!image) return new Response(null, { status: 404 });
+  const requestHost = new URL(request.url).hostname.toLowerCase();
+  const albumCode = new URL(request.url).searchParams.get("album");
+  let servedThroughAlbumDomain = false;
+  if (albumCode && SHORT_CODE_PATTERN.test(albumCode)) {
+    const albumServer = await env.DB.prepare(
+      `SELECT a.server_id FROM short_links sl JOIN albums a ON a.id = sl.target_id
+        JOIN album_images ai ON ai.album_id = a.id
+        WHERE sl.code = ? AND sl.target_type = 'album' AND sl.retired_at IS NULL
+          AND ai.image_id = ? AND a.discoverability = 'public' AND a.visibility = 'unlisted'
+          AND a.deleted_at IS NULL`,
+    )
+      .bind(albumCode, image.id)
+      .first<{ server_id: string | null }>();
+    if (albumServer?.server_id) {
+      const { activeCustomDomainForServer } = await import("./custom-domains");
+      servedThroughAlbumDomain =
+        (await activeCustomDomainForServer(env, albumServer.server_id)) === requestHost;
+    }
+  }
+  if (image.server_id && image.discoverability === "public") {
+    const { activeCustomDomainForServer } = await import("./custom-domains");
+    const customDomain = await activeCustomDomainForServer(env, image.server_id);
+    if (customDomain && requestHost !== customDomain && !servedThroughAlbumDomain)
+      return Response.redirect(`https://${customDomain}/raw/${code}`, 308);
+  }
   const cookieHeader = request.headers.get("cookie");
   let allowed = await authorizeTarget(cookieHeader, env, "image", image);
-  const albumCode = new URL(request.url).searchParams.get("album");
   if (!allowed && albumCode && SHORT_CODE_PATTERN.test(albumCode)) {
     allowed = await authorizeAlbumForImage(cookieHeader, env, albumCode, image.id);
   }
@@ -522,15 +551,16 @@ export async function updateManagedImageVisibility(
   const session = await authenticateSession(request, env);
   if (!session) return apiError("not_found", 404);
   const form = await request.formData();
-  const visibility = parseVisibility(form.get("visibility"));
+  const share = parseShareMode(form.get("visibility"));
   const passphrase = form.get("passphrase");
-  if (!visibility) return apiError("invalid_visibility", 400);
+  if (!share) return apiError("invalid_visibility", 400);
+  const { visibility, discoverability } = share;
   const current = await env.DB.prepare(
-    `SELECT visibility, passphrase_hash
+    `SELECT visibility, discoverability, passphrase_hash
       FROM images WHERE id = ? AND owner_user_id = ? AND deleted_at IS NULL AND expires_at > ?`,
   )
     .bind(id, session.user_id, Date.now())
-    .first<{ visibility: string; passphrase_hash: string | null }>();
+    .first<{ visibility: string; discoverability: string; passphrase_hash: string | null }>();
   if (!current) return apiError("not_found", 404);
   const limits = await planLimits(env, session.user_id);
   if (visibility !== "unlisted" && !limits.protectedSharing) return apiError("plus_required", 403);
@@ -565,14 +595,27 @@ export async function updateManagedImageVisibility(
     }
   }
   await env.DB.prepare(
-    `UPDATE images SET visibility = ?, passphrase_salt = ?, passphrase_hash = ?,
+    `UPDATE images SET visibility = ?, discoverability = ?, passphrase_salt = ?, passphrase_hash = ?,
       passphrase_iterations = ?, access_version = access_version + 1
       WHERE id = ? AND owner_user_id = ?`,
   )
-    .bind(visibility, salt, hash, iterations, id, session.user_id)
+    .bind(visibility, discoverability, salt, hash, iterations, id, session.user_id)
     .run();
+  if (discoverability === "public") {
+    const metadata = await env.DB.prepare("SELECT server_address FROM images WHERE id = ?")
+      .bind(id)
+      .first<{ server_address: string | null }>();
+    const { ensureServerForAddress, parseServerAddress } = await import("./servers");
+    const parsed = parseServerAddress(metadata?.server_address ?? null);
+    const serverId = await ensureServerForAddress(env, metadata?.server_address ?? null);
+    await env.DB.prepare(
+      "UPDATE images SET server_id = ?, server_host_ascii = ?, server_port = ? WHERE id = ?",
+    )
+      .bind(serverId, parsed?.hostAscii ?? null, parsed?.port ?? null, id)
+      .run();
+  }
   await revokeTargetGrants(env, "image", id);
-  return json({ saved: true, visibility, hasPassphrase: Boolean(hash) });
+  return json({ saved: true, visibility, discoverability, hasPassphrase: Boolean(hash) });
 }
 
 export async function logout(request: Request, env: CloudflareEnv): Promise<Response> {
@@ -605,7 +648,7 @@ export async function managedImages(
   const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
   const rows = await env.DB.prepare(
     `SELECT i.id, i.title, i.server_address, i.server_name, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
-      i.expires_at, i.deleted_at, i.visibility, i.access_version,
+      i.expires_at, i.deleted_at, i.visibility, i.discoverability, i.server_id, i.access_version,
       (i.passphrase_hash IS NOT NULL) AS has_passphrase, i.storage_tier, s.code
     FROM images i JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id
     WHERE i.owner_user_id = ? AND i.deleted_at IS NULL AND i.expires_at > ?
@@ -623,7 +666,7 @@ export async function managedImageDetail(
 ): Promise<ImageRow | null> {
   return env.DB.prepare(
     `SELECT i.id, i.title, i.server_address, i.server_name, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
-      i.expires_at, i.deleted_at, i.visibility, i.access_version,
+      i.expires_at, i.deleted_at, i.visibility, i.discoverability, i.server_id, i.access_version,
       (i.passphrase_hash IS NOT NULL) AS has_passphrase, i.storage_tier, s.code
     FROM images i JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id AND s.retired_at IS NULL
     WHERE i.id = ? AND i.owner_user_id = ? AND i.deleted_at IS NULL AND i.expires_at > ?`,
@@ -638,7 +681,7 @@ export async function findActiveImageByCode(
 ): Promise<ImageLookupRow | null> {
   return env.DB.prepare(
     `SELECT i.id, i.title, i.server_address, i.server_name, i.owner_device_id, i.owner_user_id, i.r2_key, i.byte_size, i.width,
-      i.height, i.created_at, i.expires_at, i.deleted_at, i.visibility, i.access_version, i.storage_tier, s.code
+      i.height, i.created_at, i.expires_at, i.deleted_at, i.visibility, i.discoverability, i.server_id, i.access_version, i.storage_tier, s.code
     FROM short_links s JOIN images i ON i.id = s.target_id
     WHERE s.code = ? AND s.target_type = 'image' AND s.retired_at IS NULL
       AND i.deleted_at IS NULL AND i.expires_at > ?`,
@@ -690,7 +733,7 @@ async function ownedImages(
   const ownerClause = userId ? "i.owner_user_id = ?" : "i.owner_device_id = ?";
   const rows = await env.DB.prepare(
     `SELECT i.id, i.title, i.server_address, i.server_name, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
-      i.expires_at, i.deleted_at, i.visibility, i.access_version, i.storage_tier, s.code
+      i.expires_at, i.deleted_at, i.visibility, i.discoverability, i.server_id, i.access_version, i.storage_tier, s.code
     FROM images i JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id
     WHERE ${ownerClause} AND i.deleted_at IS NULL AND i.expires_at > ?
     ORDER BY i.created_at DESC LIMIT 100`,
@@ -709,7 +752,7 @@ async function findOwnedImage(
   const ownerClause = userId ? "i.owner_user_id = ?" : "i.owner_device_id = ?";
   return env.DB.prepare(
     `SELECT i.id, i.title, i.server_address, i.server_name, i.owner_device_id, i.owner_user_id, i.r2_key, i.byte_size, i.width,
-      i.height, i.created_at, i.expires_at, i.deleted_at, i.visibility, i.access_version, i.storage_tier, s.code
+      i.height, i.created_at, i.expires_at, i.deleted_at, i.visibility, i.discoverability, i.server_id, i.access_version, i.storage_tier, s.code
     FROM images i JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id
     WHERE i.id = ? AND ${ownerClause}`,
   )
@@ -744,6 +787,7 @@ function publicImage(image: ImageRow, env: CloudflareEnv): Record<string, unknow
     createdAt: new Date(image.created_at).toISOString(),
     expiresAt: new Date(image.expires_at).toISOString(),
     visibility: image.visibility,
+    discoverability: image.discoverability,
   };
 }
 

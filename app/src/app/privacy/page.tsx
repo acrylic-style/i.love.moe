@@ -29,7 +29,7 @@ export default async function PrivacyPage() {
           </li>
           <li>
             <span className="text-foreground">投稿データ：</span>
-            スクリーンショット、画像タイトル、画像サイズ・寸法、アルバム名・説明・並び順、タグ、お気に入り、公開範囲、Minecraftサーバー名・アドレス、短縮URL、保存期限
+            スクリーンショット、画像タイトル、画像サイズ・寸法、アルバム名・説明・並び順、タグ、お気に入り、公開範囲、Minecraftサーバー名・アドレス、サーバーページのプロフィール・検証情報・編集者、接続する独自ドメイン、短縮URL、保存期限
           </li>
           <li>
             <span className="text-foreground">保護設定：</span>
@@ -82,6 +82,9 @@ export default async function PrivacyPage() {
 
       <LegalSection title="4. 公開と共有に関する注意">
         <LegalList>
+          <li>
+            一般公開を選んだ投稿データ、サーバーページのプロフィール、検証済み接続先は、検索結果や利用者が接続した独自ドメインを含め、誰でも閲覧できます。
+          </li>
           <li>URL限定公開を選んだ投稿データは、短縮URLを知るすべての人が閲覧できます。</li>
           <li>
             合言葉付き公開を選んだ投稿データは、URLと合言葉を知る人が閲覧できます。合言葉の第三者への共有は利用者自身で管理してください。
@@ -192,8 +195,9 @@ function EnglishPrivacy() {
           <li>
             <span className="text-foreground">Uploaded data: </span>
             Screenshots, image titles, file sizes and dimensions, album names and descriptions,
-            display order, tags, favorites, visibility, Minecraft server names and addresses, short
-            URLs, and expiration dates.
+            display order, tags, favorites, visibility, Minecraft server names and addresses,
+            server-page profiles, verification and editor information, connected custom domains,
+            short URLs, and expiration dates.
           </li>
           <li>
             <span className="text-foreground">Protection settings: </span>
@@ -265,6 +269,10 @@ function EnglishPrivacy() {
 
       <LegalSection title="4. Public and shared content">
         <LegalList>
+          <li>
+            Public Uploaded Data, server-page profiles, and verified connection addresses can be
+            viewed by anyone, including through search results and user-connected custom domains.
+          </li>
           <li>
             Uploaded Data shared with anyone who has the URL can be viewed by anyone who knows it.
           </li>

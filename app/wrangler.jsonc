@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "i-love-moe",
-  "main": ".open-next/worker.js",
+  "main": "worker.ts",
   "compatibility_date": "2026-07-22",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "workers_dev": false,
@@ -11,6 +11,8 @@
     "EMAIL_FROM": "login@i.xn--29jub.moe",
     "STRIPE_PLUS_PRICE_ID": "price_1Tw3s8DuEzGgZNJftccZyYBy",
     "LEGAL_NOTICE_URL": "https://gist.github.com/acrylic-style/002d58b4416b55d36c965cfd6d81e1c2",
+    "SAAS_CNAME_TARGET": "mc.moe.pictures",
+    "SAAS_FALLBACK_ORIGIN": "fallback.moe.pictures",
   },
   "secrets": {
     "required": [
@@ -19,6 +21,8 @@
       "TURNSTILE_SECRET_KEY",
       "STRIPE_SECRET_KEY",
       "STRIPE_WEBHOOK_SECRET",
+      "CLOUDFLARE_SAAS_API_TOKEN",
+      "CLOUDFLARE_SAAS_ZONE_ID",
     ],
   },
   "routes": [
@@ -27,8 +31,8 @@
       "custom_domain": true,
     },
     {
-      "pattern": "mc.moe.pictures",
-      "custom_domain": true,
+      "pattern": "*/*",
+      "zone_name": "moe.pictures",
     },
   ],
   "d1_databases": [

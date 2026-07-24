@@ -23,6 +23,10 @@ export interface Env {
   STRIPE_SECRET_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;
   STRIPE_PLUS_PRICE_ID: string;
+  CLOUDFLARE_SAAS_API_TOKEN?: string;
+  CLOUDFLARE_SAAS_ZONE_ID?: string;
+  SAAS_CNAME_TARGET?: string;
+  SAAS_FALLBACK_ORIGIN?: string;
   LEGAL_NOTICE_URL?: string;
 }
 
@@ -36,6 +40,7 @@ export interface DeviceRow {
 }
 
 export type Visibility = "unlisted" | "private" | "passphrase";
+export type Discoverability = "hidden" | "public";
 
 export interface AccessControlledRow {
   id: string;
@@ -62,6 +67,10 @@ export interface ImageRow {
   access_version: number;
   has_passphrase?: number;
   storage_tier: "free" | "plus";
+  discoverability: Discoverability;
+  server_id: string | null;
+  server_host_ascii?: string | null;
+  server_port?: number | null;
   favorited_at?: number | null;
 }
 
@@ -107,6 +116,29 @@ export interface AlbumRow {
   visibility: Visibility;
   access_version: number;
   has_passphrase?: number;
+  discoverability: Discoverability;
+  server_id: string | null;
+}
+
+export interface ServerRow {
+  id: string;
+  code: string;
+  slug: string | null;
+  display_name: string | null;
+  description: string | null;
+  owner_user_id: string | null;
+  pending_owner_user_id: string | null;
+  pending_owner_created_at: number | null;
+  verification_method: "dns" | "motd" | null;
+  verified_at: number | null;
+  icon_key: string | null;
+  banner_key: string | null;
+  featured_image_id: string | null;
+  created_at: number;
+  updated_at: number;
+  host_ascii?: string;
+  port?: number;
+  display_address?: string;
 }
 
 export interface AlbumImageRow extends ImageRow {

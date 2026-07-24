@@ -1,4 +1,4 @@
-import type { AlbumImageRow, AlbumRow, ImageRow } from "@/types";
+import type { AlbumImageRow, AlbumRow, ImageRow, ServerRow } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ export async function AlbumForm({
   submitLabel,
   allowProtected = true,
   maxImages = 50,
+  servers = [],
 }: {
   action: string;
   images: ImageRow[];
@@ -26,6 +27,7 @@ export async function AlbumForm({
   submitLabel: string;
   allowProtected?: boolean;
   maxImages?: number;
+  servers?: ServerRow[];
 }) {
   const { t } = await getI18n();
   const errorMessages: Record<string, string> = {
@@ -34,6 +36,7 @@ export async function AlbumForm({
     album_limit_reached: t("album.limitReached"),
     invalid_access: t("album.invalidAccess"),
     plus_required: t("album.plusRequired"),
+    invalid_server: t("album.invalidServer"),
   };
   const selected = new Set(selectedImages.map((image) => image.id));
   return (
@@ -65,11 +68,29 @@ export async function AlbumForm({
       </div>
       <VisibilityFields
         initialVisibility={album?.visibility ?? "unlisted"}
+        initialDiscoverability={album?.discoverability ?? "hidden"}
         hasPassphrase={Boolean(album?.has_passphrase)}
         idPrefix="album"
         allowProtected={allowProtected}
       />
       <p className="text-sm text-muted-foreground">{t("album.visibilityNote")}</p>
+      <div className="space-y-2">
+        <Label htmlFor="album-server">{t("album.serverLabel")}</Label>
+        <select
+          id="album-server"
+          name="serverId"
+          defaultValue={album?.server_id ?? ""}
+          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+        >
+          <option value="">{t("album.noServer")}</option>
+          {servers.map((server) => (
+            <option key={server.id} value={server.id}>
+              {server.display_name ?? server.display_address ?? server.code}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-muted-foreground">{t("album.serverDescription")}</p>
+      </div>
       <fieldset className="rounded-lg border p-4">
         <legend className="px-2 text-sm font-medium">
           {t("album.imagesLegend", { count: maxImages })}

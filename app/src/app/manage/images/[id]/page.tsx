@@ -83,6 +83,7 @@ export default async function EditImagePage({ params }: { params: Promise<{ id: 
             <ImageVisibilityForm
               imageId={image.id}
               initialVisibility={image.visibility}
+              initialDiscoverability={image.discoverability}
               hasPassphrase={Boolean(image.has_passphrase)}
               allowProtected={limits.protectedSharing}
             />

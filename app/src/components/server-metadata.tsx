@@ -5,10 +5,12 @@ export async function ServerMetadata({
   name,
   address,
   compact = false,
+  href,
 }: {
   name: string | null;
   address: string | null;
   compact?: boolean;
+  href?: string;
 }) {
   if (!name && !address) return null;
   const { t } = await getI18n();
@@ -23,8 +25,21 @@ export async function ServerMetadata({
       <ServerIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
       <div className="min-w-0">
         {!compact && <p className="font-medium text-foreground">{t("server.capturedOn")}</p>}
-        {name && <p className={compact ? "truncate text-foreground" : "text-foreground"}>{name}</p>}
-        {address && <p className="break-all text-muted-foreground">{address}</p>}
+        {href ? (
+          <a className="hover:underline" href={href}>
+            {name && (
+              <p className={compact ? "truncate text-foreground" : "text-foreground"}>{name}</p>
+            )}
+            {address && <p className="break-all text-muted-foreground">{address}</p>}
+          </a>
+        ) : (
+          <>
+            {name && (
+              <p className={compact ? "truncate text-foreground" : "text-foreground"}>{name}</p>
+            )}
+            {address && <p className="break-all text-muted-foreground">{address}</p>}
+          </>
+        )}
       </div>
     </div>
   );

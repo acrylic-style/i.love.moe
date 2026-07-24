@@ -54,7 +54,7 @@ describe("image library helpers", () => {
       }),
     ).toMatchObject({
       q: "x".repeat(100),
-      visibility: "",
+      visibility: "public",
       favorite: true,
       from: 123,
       to: null,

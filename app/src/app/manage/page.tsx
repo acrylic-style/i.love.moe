@@ -56,8 +56,13 @@ export default async function ManagePage({
   ]);
   const { error, checkout } = await searchParams;
   const priceLabel = subscriptionPriceLabel(subscription, locale);
-  const visibilityLabel = (visibility: "unlisted" | "private" | "passphrase") =>
-    t(`visibility.${visibility}`);
+  const visibilityLabel = (
+    visibility: "unlisted" | "private" | "passphrase",
+    discoverability: "hidden" | "public",
+  ) =>
+    visibility === "unlisted" && discoverability === "public"
+      ? t("visibility.public")
+      : t(`visibility.${visibility}`);
   return (
     <main className="mx-auto max-w-6xl space-y-12">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -133,6 +138,16 @@ export default async function ManagePage({
         </CardContent>
       </Card>
 
+      <section className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-semibold">{t("servers.manageTitle")}</h2>
+          <p className="text-muted-foreground">{t("servers.manageDescription")}</p>
+        </div>
+        <a className={buttonVariants({ variant: "outline" })} href="/manage/servers">
+          {t("common.edit")}
+        </a>
+      </section>
+
       <section className="space-y-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -173,7 +188,7 @@ export default async function ManagePage({
                   <CardTitle>{album.title}</CardTitle>
                   <CardDescription>
                     {t("common.imageCount", { count: album.image_count ?? 0 })} ·{" "}
-                    {visibilityLabel(album.visibility)} ·{" "}
+                    {visibilityLabel(album.visibility, album.discoverability)} ·{" "}
                     <a className="text-primary hover:underline" href={`/${album.code}`}>
                       {album.code}
                     </a>
@@ -223,7 +238,7 @@ export default async function ManagePage({
                       {image.title ?? t("common.untitled")}
                     </h3>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {visibilityLabel(image.visibility)}
+                      {visibilityLabel(image.visibility, image.discoverability)}
                     </p>
                   </div>
                   <ServerMetadata name={image.server_name} address={image.server_address} compact />

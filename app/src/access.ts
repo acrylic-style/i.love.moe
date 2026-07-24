@@ -27,6 +27,14 @@ export function parseVisibility(value: FormDataEntryValue | null): Visibility | 
   return value === "unlisted" || value === "private" || value === "passphrase" ? value : null;
 }
 
+export function parseShareMode(
+  value: FormDataEntryValue | null,
+): { visibility: Visibility; discoverability: "hidden" | "public" } | null {
+  if (value === "public") return { visibility: "unlisted", discoverability: "public" };
+  const visibility = parseVisibility(value);
+  return visibility ? { visibility, discoverability: "hidden" } : null;
+}
+
 export function validPassphrase(value: FormDataEntryValue | null): value is string {
   return (
     typeof value === "string" && Array.from(value).length >= 4 && Array.from(value).length <= 100

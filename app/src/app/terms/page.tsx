@@ -42,7 +42,7 @@ export default async function TermsPage() {
             ログインした利用者は、画像タイトル、Minecraftサーバー名・アドレス、アルバム、タグ、お気に入り、公開範囲などを管理できます。
           </li>
           <li>
-            公開範囲には、URL限定公開、非公開、合言葉付き公開があります。URL限定公開は検索一覧への掲載を意図しない方式ですが、URLを知る人の閲覧を技術的に制限するものではありません。
+            公開範囲には、一般公開、URL限定公開、非公開、合言葉付き公開があります。一般公開はサーバーページ、検索結果、接続された独自ドメインに掲載されます。URL限定公開は検索一覧への掲載を意図しない方式ですが、URLを知る人の閲覧を技術的に制限するものではありません。
           </li>
           <li>
             本サービスはMojang StudiosまたはMicrosoft
@@ -232,9 +232,10 @@ function EnglishTerms() {
             tags, favorites, visibility, and related settings.
           </li>
           <li>
-            Visibility options include anyone with the URL, private, and passphrase-protected.
-            Anyone-with-the-URL sharing is not intended for search listings, but it does not
-            technically restrict access by a person who knows the URL.
+            Visibility options include public, anyone with the URL, private, and
+            passphrase-protected. Public content may appear on server pages, search results, and
+            connected custom domains. Anyone-with-the-URL sharing is not intended for search
+            listings, but it does not technically restrict access by a person who knows the URL.
           </li>
           <li>
             The Service is not provided, approved, or sponsored by Mojang Studios or Microsoft
