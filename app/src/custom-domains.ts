@@ -62,14 +62,35 @@ export async function activeCustomDomainForServer(
 export async function resolveCustomDomain(
   env: CloudflareEnv,
   hostname: string,
-): Promise<(CustomDomainRow & { server_code: string; server_slug: string | null }) | null> {
+): Promise<
+  | (CustomDomainRow & {
+      server_code: string;
+      server_slug: string | null;
+      server_display_name: string | null;
+      server_display_address: string | null;
+      server_icon_key: string | null;
+    })
+  | null
+> {
   return env.DB.prepare(
-    `SELECT d.*, s.code AS server_code, s.slug AS server_slug
-      FROM server_custom_domains d JOIN servers s ON s.id = d.server_id
+    `SELECT d.*, s.code AS server_code, s.slug AS server_slug,
+        s.display_name AS server_display_name, s.icon_key AS server_icon_key,
+        a.display_address AS server_display_address
+      FROM server_custom_domains d
+      JOIN servers s ON s.id = d.server_id
+      LEFT JOIN server_addresses a ON a.server_id = s.id AND a.is_primary = 1
       WHERE d.hostname_ascii = ? AND d.status IN ('active', 'grace')`,
   )
     .bind(hostname.toLowerCase())
-    .first<CustomDomainRow & { server_code: string; server_slug: string | null }>();
+    .first<
+      CustomDomainRow & {
+        server_code: string;
+        server_slug: string | null;
+        server_display_name: string | null;
+        server_display_address: string | null;
+        server_icon_key: string | null;
+      }
+    >();
 }
 
 export async function createCustomDomain(

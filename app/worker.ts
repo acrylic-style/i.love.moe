@@ -55,6 +55,7 @@ export default {
     if (
       url.pathname.startsWith("/_next/") ||
       url.pathname === "/favicon.ico" ||
+      url.pathname === "/mod-icon.png" ||
       url.pathname === "/terms" ||
       url.pathname === "/privacy" ||
       url.pathname === `/servers/assets/${domain.server_id}/icon` ||
