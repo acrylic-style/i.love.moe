@@ -4,6 +4,7 @@ import { getEnv } from "@/cloudflare";
 import { ImageTitleForm } from "@/components/image-title-form";
 import { ImageVisibilityForm } from "@/components/image-visibility-form";
 import { LocalDateTime } from "@/components/local-date-time";
+import { MinecraftIdVisibilityForm } from "@/components/minecraft-id-visibility-form";
 import { ServerMetadata } from "@/components/server-metadata";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,6 +81,14 @@ export default async function EditImagePage({ params }: { params: Promise<{ id: 
           <ServerMetadata name={image.server_name} address={image.server_address} />
           <div className="space-y-8 border-t pt-8">
             <ImageTitleForm imageId={image.id} initialTitle={image.title} />
+            {image.minecraft_uuid && image.minecraft_name && (
+              <MinecraftIdVisibilityForm
+                imageId={image.id}
+                minecraftName={image.minecraft_name}
+                minecraftUuid={image.minecraft_uuid}
+                initialPublic={image.minecraft_id_public !== 0}
+              />
+            )}
             <ImageVisibilityForm
               imageId={image.id}
               initialVisibility={image.visibility}

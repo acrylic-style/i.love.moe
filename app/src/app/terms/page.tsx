@@ -11,7 +11,7 @@ export default async function TermsPage() {
   const { locale } = await getI18n();
   if (locale === "en") return <EnglishTerms />;
   return (
-    <LegalDocument title="利用規約" description="制定・施行日：2026年7月23日">
+    <LegalDocument title="利用規約" description="制定・施行日：2026年7月24日">
       <p>
         この利用規約（以下「本規約」といいます。）は、i.らぶ.moeの運営者（以下「運営者」といいます。）が提供するMinecraftスクリーンショットの保存・共有サービス「i.らぶ.moe」（以下「本サービス」といいます。）の利用条件を定めるものです。
       </p>
@@ -36,7 +36,7 @@ export default async function TermsPage() {
         <LegalList>
           <li>
             本サービスは、Fabric
-            ModからMinecraftのスクリーンショットをアップロードし、短縮URLで閲覧・共有する機能を提供します。
+            Modまたはログイン後のWeb画面からMinecraftのスクリーンショットをアップロードし、短縮URLで閲覧・共有する機能を提供します。
           </li>
           <li>
             ログインした利用者は、画像タイトル、Minecraftサーバー名・アドレス、アルバム、タグ、お気に入り、公開範囲などを管理できます。
@@ -69,6 +69,11 @@ export default async function TermsPage() {
         <LegalList>
           <li>
             利用者は、アップロードする画像、タイトル、アルバム説明、サーバー情報その他のデータ（以下「投稿データ」といいます。）について、保存・共有に必要な権利または許可を有することを保証します。
+          </li>
+          <li>
+            Modから送信されたMinecraft UUIDとMinecraft
+            IDは自己申告情報であり、Minecraftアカウントの所有確認を示すものではありません。画像ごとのMinecraft
+            ID表示は初期設定でONになり、管理画面からOFFにできます。
           </li>
           <li>
             Minecraftのスクリーンショットには、他のプレイヤーの名前、スキン、チャット、サーバー情報などが含まれる場合があります。利用者は、関係者のプライバシー、各サーバーの規約、著作権その他の権利に配慮してください。
@@ -141,6 +146,9 @@ export default async function TermsPage() {
             本サービスの運営を妨害する行為、または運営者が同等の危険があると合理的に判断する行為
           </li>
         </LegalList>
+        <p>
+          運営者は、投稿画像を保存する前に外部サービスを用いた自動確認を行い、禁止コンテンツの可能性がある画像を拒否できます。自動確認は完全ではなく、投稿できたことが適法性や本規約への適合を保証するものではありません。
+        </p>
       </LegalSection>
 
       <LegalSection title="第9条 利用停止">
@@ -197,7 +205,7 @@ export default async function TermsPage() {
 
 function EnglishTerms() {
   return (
-    <LegalDocument title="Terms of Service" description="Established and effective: July 23, 2026">
+    <LegalDocument title="Terms of Service" description="Established and effective: July 24, 2026">
       <p>
         These Terms of Service (the “Terms”) set out the conditions for using i.らぶ.moe (the
         “Service”), a Minecraft screenshot storage and sharing service provided by the operator of
@@ -224,8 +232,8 @@ function EnglishTerms() {
       <LegalSection title="Article 2 — Service description">
         <LegalList>
           <li>
-            The Service lets users upload Minecraft screenshots from the Fabric Mod and view or
-            share them through short URLs.
+            The Service lets users upload Minecraft screenshots from the Fabric Mod or the signed-in
+            web interface and view or share them through short URLs.
           </li>
           <li>
             Signed-in users can manage image titles, Minecraft server names and addresses, albums,
@@ -267,6 +275,11 @@ function EnglishTerms() {
             You represent that you have the rights or permission needed to store and share images,
             titles, album descriptions, server information, and other data you submit (“Uploaded
             Data”).
+          </li>
+          <li>
+            Minecraft UUIDs and Minecraft IDs sent by the Mod are self-reported and do not establish
+            ownership of a Minecraft account. Minecraft ID display is enabled by default for each
+            image and can be disabled from the management page.
           </li>
           <li>
             Minecraft screenshots may contain player names, skins, chat, and server information. You
@@ -364,6 +377,12 @@ function EnglishTerms() {
             considers similarly dangerous.
           </li>
         </LegalList>
+        <p>
+          Before storing an uploaded image, the Operator may use an external service to perform an
+          automated check and reject images that may contain prohibited content. Automated checks
+          are not infallible, and acceptance does not guarantee legality or compliance with these
+          terms.
+        </p>
       </LegalSection>
 
       <LegalSection title="Article 9 — Suspension">

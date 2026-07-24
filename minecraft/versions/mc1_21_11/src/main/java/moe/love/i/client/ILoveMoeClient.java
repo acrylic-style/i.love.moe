@@ -34,6 +34,12 @@ public final class ILoveMoeClient implements ClientModInitializer {
                         .then(ClientCommandManager.literal("upload")
                                 .then(ClientCommandManager.argument("id", StringArgumentType.word())
                                         .executes(context -> upload(StringArgumentType.getString(context, "id")))))
+                        .then(ClientCommandManager.literal("upload-confirm")
+                                .then(ClientCommandManager.argument("id", StringArgumentType.word())
+                                        .executes(context -> confirmUpload(StringArgumentType.getString(context, "id")))))
+                        .then(ClientCommandManager.literal("upload-cancel")
+                                .then(ClientCommandManager.argument("id", StringArgumentType.word())
+                                        .executes(context -> cancelUpload(StringArgumentType.getString(context, "id")))))
                         .then(ClientCommandManager.literal("delete")
                                 .then(ClientCommandManager.argument("id", StringArgumentType.word())
                                         .executes(context -> delete(StringArgumentType.getString(context, "id")))))
@@ -63,16 +69,23 @@ public final class ILoveMoeClient implements ClientModInitializer {
     private static void handleScreenshot(Path screenshot) {
         MinecraftClient client = MinecraftClient.getInstance();
         ServerMetadata metadata = MinecraftServerMetadata.from(client.getCurrentServerEntry());
+        MinecraftProfileMetadata profile = MinecraftProfileMetadata.of(
+                client.getGameProfile().id(),
+                client.getGameProfile().name());
         if (config.autoUploadEnabled()) {
-            beginUpload(screenshot, metadata, true);
+            if (config.minecraftProfileDisclosureAccepted()) {
+                beginUpload(screenshot, metadata, profile, true);
+            } else {
+                String id = rememberUpload(screenshot, metadata, profile, true);
+                showMinecraftProfileDisclosure(id);
+            }
         } else {
-            offerUpload(screenshot, metadata);
+            offerUpload(screenshot, metadata, profile);
         }
     }
 
-    static void offerUpload(Path screenshot, ServerMetadata serverMetadata) {
-        String id = UUID.randomUUID().toString();
-        PENDING_UPLOADS.put(id, new PendingUpload(screenshot, serverMetadata));
+    static void offerUpload(Path screenshot, ServerMetadata serverMetadata, MinecraftProfileMetadata profile) {
+        String id = rememberUpload(screenshot, serverMetadata, profile, false);
         MutableText action = Text.translatable("message.i_love_moe.action.upload")
                 .styled(style -> style.withColor(Formatting.AQUA)
                         .withUnderline(true)
@@ -81,20 +94,78 @@ public final class ILoveMoeClient implements ClientModInitializer {
     }
 
     private static int upload(String pendingId) {
-        PendingUpload pending = PENDING_UPLOADS.remove(pendingId);
+        PendingUpload pending = PENDING_UPLOADS.get(pendingId);
         if (pending == null || !Files.isRegularFile(pending.screenshot())) {
+            PENDING_UPLOADS.remove(pendingId);
             sendError(Text.translatable("message.i_love_moe.error.screenshot_missing"));
             return 0;
         }
-        beginUpload(pending.screenshot(), pending.serverMetadata(), false);
+        if (!config.minecraftProfileDisclosureAccepted()) {
+            showMinecraftProfileDisclosure(pendingId);
+            return 1;
+        }
+        PENDING_UPLOADS.remove(pendingId);
+        beginUpload(
+                pending.screenshot(),
+                pending.serverMetadata(),
+                pending.minecraftProfile(),
+                pending.automatic());
         return 1;
     }
 
-    private static void beginUpload(Path screenshot, ServerMetadata serverMetadata, boolean automatic) {
+    private static int confirmUpload(String pendingId) {
+        PendingUpload pending = PENDING_UPLOADS.get(pendingId);
+        if (pending == null || !Files.isRegularFile(pending.screenshot())) {
+            PENDING_UPLOADS.remove(pendingId);
+            sendError(Text.translatable("message.i_love_moe.error.screenshot_missing"));
+            return 0;
+        }
+        config.acceptMinecraftProfileDisclosure();
+        return upload(pendingId);
+    }
+
+    private static int cancelUpload(String pendingId) {
+        PENDING_UPLOADS.remove(pendingId);
+        sendMessage(Text.translatable("message.i_love_moe.minecraft_profile.cancelled")
+                .formatted(Formatting.GRAY));
+        return 1;
+    }
+
+    private static String rememberUpload(
+            Path screenshot,
+            ServerMetadata serverMetadata,
+            MinecraftProfileMetadata profile,
+            boolean automatic
+    ) {
+        String id = UUID.randomUUID().toString();
+        PENDING_UPLOADS.put(id, new PendingUpload(screenshot, serverMetadata, profile, automatic));
+        return id;
+    }
+
+    private static void showMinecraftProfileDisclosure(String pendingId) {
+        MutableText accept = Text.translatable("message.i_love_moe.action.accept_upload")
+                .styled(style -> style.withColor(Formatting.GREEN)
+                        .withUnderline(true)
+                        .withClickEvent(new ClickEvent.RunCommand("/ilovemoe upload-confirm " + pendingId)));
+        MutableText cancel = Text.translatable("message.i_love_moe.action.cancel")
+                .styled(style -> style.withColor(Formatting.RED)
+                        .withClickEvent(new ClickEvent.RunCommand("/ilovemoe upload-cancel " + pendingId)));
+        sendMessage(Text.translatable(
+                "message.i_love_moe.minecraft_profile.disclosure",
+                accept,
+                cancel));
+    }
+
+    private static void beginUpload(
+            Path screenshot,
+            ServerMetadata serverMetadata,
+            MinecraftProfileMetadata minecraftProfile,
+            boolean automatic
+    ) {
         sendMessage(Text.translatable(automatic
                 ? "message.i_love_moe.upload.automatic"
                 : "message.i_love_moe.upload.manual").formatted(Formatting.GRAY));
-        api.upload(screenshot, serverMetadata, automatic).whenComplete((result, error) -> MinecraftClient.getInstance().execute(() -> {
+        api.upload(screenshot, serverMetadata, minecraftProfile, automatic).whenComplete((result, error) -> MinecraftClient.getInstance().execute(() -> {
             if (error != null) {
                 if (automatic && "plus_required".equals(ApiClient.errorCode(error))) {
                     config.setAutoUpload(false);
@@ -228,6 +299,9 @@ public final class ILoveMoeClient implements ClientModInitializer {
             case "invalid_server_metadata" -> "message.i_love_moe.error.invalid_server_metadata";
             case "invalid_image_title" -> "message.i_love_moe.error.invalid_image_title";
             case "upload_limit_reached" -> "message.i_love_moe.error.upload_limit_reached";
+            case "upload_rate_limited" -> "message.i_love_moe.error.upload_rate_limited";
+            case "image_rejected" -> "message.i_love_moe.error.image_rejected";
+            case "moderation_unavailable" -> "message.i_love_moe.error.moderation_unavailable";
             case "plus_required" -> "message.i_love_moe.error.plus_required";
             case "invalid_email" -> "message.i_love_moe.error.invalid_email";
             case "too_many_requests" -> "message.i_love_moe.error.too_many_requests";
@@ -246,6 +320,11 @@ public final class ILoveMoeClient implements ClientModInitializer {
         if (client.inGameHud != null) client.inGameHud.getChatHud().addMessage(message);
     }
 
-    private record PendingUpload(Path screenshot, ServerMetadata serverMetadata) {
+    private record PendingUpload(
+            Path screenshot,
+            ServerMetadata serverMetadata,
+            MinecraftProfileMetadata minecraftProfile,
+            boolean automatic
+    ) {
     }
 }

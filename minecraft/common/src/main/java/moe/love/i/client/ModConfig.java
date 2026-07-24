@@ -17,6 +17,7 @@ final class ModConfig {
     String apiBaseUrl = "https://i.らぶ.moe";
     String deviceToken;
     boolean autoUpload;
+    boolean minecraftProfileDisclosureAccepted;
 
     private ModConfig(Path path) {
         this.path = path.toAbsolutePath().normalize();
@@ -59,6 +60,15 @@ final class ModConfig {
 
     boolean autoUploadEnabled() {
         return autoUpload;
+    }
+
+    synchronized void acceptMinecraftProfileDisclosure() {
+        minecraftProfileDisclosureAccepted = true;
+        save();
+    }
+
+    boolean minecraftProfileDisclosureAccepted() {
+        return minecraftProfileDisclosureAccepted;
     }
 
     synchronized void save() {

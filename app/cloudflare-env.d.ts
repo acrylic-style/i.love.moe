@@ -4,6 +4,7 @@ declare global {
   interface CloudflareEnv {
     DB: D1Database;
     IMAGES: R2Bucket;
+    IMAGE_TRANSFORM: ImagesBinding;
     EMAIL: EmailBinding;
     ASSETS: Fetcher;
     PUBLIC_BASE_URL: string;
@@ -21,6 +22,10 @@ declare global {
     SAAS_CNAME_TARGET?: string;
     SAAS_FALLBACK_ORIGIN?: string;
     LEGAL_NOTICE_URL: string;
+    AWS_ACCESS_KEY_ID: string;
+    AWS_SECRET_ACCESS_KEY: string;
+    AWS_REGION: string;
+    ABUSE_CONTACT_EMAIL: string;
   }
 }
 

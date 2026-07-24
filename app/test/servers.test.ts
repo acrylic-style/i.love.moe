@@ -3,6 +3,7 @@ import {
   asciiHostname,
   displayServerAddress,
   isDisallowedHost,
+  normalizeServerBrandColor,
   parseServerAddress,
   serverFavoriteIpHash,
 } from "../src/servers";
@@ -66,5 +67,11 @@ describe("Minecraft server address normalization", () => {
     expect(first).toBe(second);
     expect(first).not.toBe(other);
     expect(first).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("normalizes six-digit server branding colors", () => {
+    expect(normalizeServerBrandColor(" #E889B6 ")).toBe("#e889b6");
+    expect(normalizeServerBrandColor("#fff")).toBeNull();
+    expect(normalizeServerBrandColor("red")).toBeNull();
   });
 });

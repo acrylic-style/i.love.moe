@@ -34,6 +34,12 @@ public final class ILoveMoeClient implements ClientModInitializer {
                         .then(ClientCommands.literal("upload")
                                 .then(ClientCommands.argument("id", StringArgumentType.word())
                                         .executes(context -> upload(StringArgumentType.getString(context, "id")))))
+                        .then(ClientCommands.literal("upload-confirm")
+                                .then(ClientCommands.argument("id", StringArgumentType.word())
+                                        .executes(context -> confirmUpload(StringArgumentType.getString(context, "id")))))
+                        .then(ClientCommands.literal("upload-cancel")
+                                .then(ClientCommands.argument("id", StringArgumentType.word())
+                                        .executes(context -> cancelUpload(StringArgumentType.getString(context, "id")))))
                         .then(ClientCommands.literal("delete")
                                 .then(ClientCommands.argument("id", StringArgumentType.word())
                                         .executes(context -> delete(StringArgumentType.getString(context, "id")))))
@@ -63,16 +69,23 @@ public final class ILoveMoeClient implements ClientModInitializer {
     private static void handleScreenshot(Path screenshot) {
         Minecraft client = Minecraft.getInstance();
         ServerMetadata metadata = MinecraftServerMetadata.from(client.getCurrentServer());
+        MinecraftProfileMetadata profile = MinecraftProfileMetadata.of(
+                client.getGameProfile().id(),
+                client.getGameProfile().name());
         if (config.autoUploadEnabled()) {
-            beginUpload(screenshot, metadata, true);
+            if (config.minecraftProfileDisclosureAccepted()) {
+                beginUpload(screenshot, metadata, profile, true);
+            } else {
+                String id = rememberUpload(screenshot, metadata, profile, true);
+                showMinecraftProfileDisclosure(id);
+            }
         } else {
-            offerUpload(screenshot, metadata);
+            offerUpload(screenshot, metadata, profile);
         }
     }
 
-    static void offerUpload(Path screenshot, ServerMetadata serverMetadata) {
-        String id = UUID.randomUUID().toString();
-        PENDING_UPLOADS.put(id, new PendingUpload(screenshot, serverMetadata));
+    static void offerUpload(Path screenshot, ServerMetadata serverMetadata, MinecraftProfileMetadata profile) {
+        String id = rememberUpload(screenshot, serverMetadata, profile, false);
         MutableComponent action = Component.translatable("message.i_love_moe.action.upload")
                 .withStyle(style -> style.withColor(ChatFormatting.AQUA)
                         .withUnderlined(true)
@@ -81,20 +94,78 @@ public final class ILoveMoeClient implements ClientModInitializer {
     }
 
     private static int upload(String pendingId) {
-        PendingUpload pending = PENDING_UPLOADS.remove(pendingId);
+        PendingUpload pending = PENDING_UPLOADS.get(pendingId);
         if (pending == null || !Files.isRegularFile(pending.screenshot())) {
+            PENDING_UPLOADS.remove(pendingId);
             sendError(Component.translatable("message.i_love_moe.error.screenshot_missing"));
             return 0;
         }
-        beginUpload(pending.screenshot(), pending.serverMetadata(), false);
+        if (!config.minecraftProfileDisclosureAccepted()) {
+            showMinecraftProfileDisclosure(pendingId);
+            return 1;
+        }
+        PENDING_UPLOADS.remove(pendingId);
+        beginUpload(
+                pending.screenshot(),
+                pending.serverMetadata(),
+                pending.minecraftProfile(),
+                pending.automatic());
         return 1;
     }
 
-    private static void beginUpload(Path screenshot, ServerMetadata serverMetadata, boolean automatic) {
+    private static int confirmUpload(String pendingId) {
+        PendingUpload pending = PENDING_UPLOADS.get(pendingId);
+        if (pending == null || !Files.isRegularFile(pending.screenshot())) {
+            PENDING_UPLOADS.remove(pendingId);
+            sendError(Component.translatable("message.i_love_moe.error.screenshot_missing"));
+            return 0;
+        }
+        config.acceptMinecraftProfileDisclosure();
+        return upload(pendingId);
+    }
+
+    private static int cancelUpload(String pendingId) {
+        PENDING_UPLOADS.remove(pendingId);
+        sendMessage(Component.translatable("message.i_love_moe.minecraft_profile.cancelled")
+                .withStyle(ChatFormatting.GRAY));
+        return 1;
+    }
+
+    private static String rememberUpload(
+            Path screenshot,
+            ServerMetadata serverMetadata,
+            MinecraftProfileMetadata profile,
+            boolean automatic
+    ) {
+        String id = UUID.randomUUID().toString();
+        PENDING_UPLOADS.put(id, new PendingUpload(screenshot, serverMetadata, profile, automatic));
+        return id;
+    }
+
+    private static void showMinecraftProfileDisclosure(String pendingId) {
+        MutableComponent accept = Component.translatable("message.i_love_moe.action.accept_upload")
+                .withStyle(style -> style.withColor(ChatFormatting.GREEN)
+                        .withUnderlined(true)
+                        .withClickEvent(new ClickEvent.RunCommand("/ilovemoe upload-confirm " + pendingId)));
+        MutableComponent cancel = Component.translatable("message.i_love_moe.action.cancel")
+                .withStyle(style -> style.withColor(ChatFormatting.RED)
+                        .withClickEvent(new ClickEvent.RunCommand("/ilovemoe upload-cancel " + pendingId)));
+        sendMessage(Component.translatable(
+                "message.i_love_moe.minecraft_profile.disclosure",
+                accept,
+                cancel));
+    }
+
+    private static void beginUpload(
+            Path screenshot,
+            ServerMetadata serverMetadata,
+            MinecraftProfileMetadata minecraftProfile,
+            boolean automatic
+    ) {
         sendMessage(Component.translatable(automatic
                 ? "message.i_love_moe.upload.automatic"
                 : "message.i_love_moe.upload.manual").withStyle(ChatFormatting.GRAY));
-        api.upload(screenshot, serverMetadata, automatic).whenComplete((result, error) -> Minecraft.getInstance().execute(() -> {
+        api.upload(screenshot, serverMetadata, minecraftProfile, automatic).whenComplete((result, error) -> Minecraft.getInstance().execute(() -> {
             if (error != null) {
                 if (automatic && "plus_required".equals(ApiClient.errorCode(error))) {
                     config.setAutoUpload(false);
@@ -228,6 +299,9 @@ public final class ILoveMoeClient implements ClientModInitializer {
             case "invalid_server_metadata" -> "message.i_love_moe.error.invalid_server_metadata";
             case "invalid_image_title" -> "message.i_love_moe.error.invalid_image_title";
             case "upload_limit_reached" -> "message.i_love_moe.error.upload_limit_reached";
+            case "upload_rate_limited" -> "message.i_love_moe.error.upload_rate_limited";
+            case "image_rejected" -> "message.i_love_moe.error.image_rejected";
+            case "moderation_unavailable" -> "message.i_love_moe.error.moderation_unavailable";
             case "plus_required" -> "message.i_love_moe.error.plus_required";
             case "invalid_email" -> "message.i_love_moe.error.invalid_email";
             case "too_many_requests" -> "message.i_love_moe.error.too_many_requests";
@@ -245,6 +319,11 @@ public final class ILoveMoeClient implements ClientModInitializer {
         MinecraftUi.sendMessage(message);
     }
 
-    private record PendingUpload(Path screenshot, ServerMetadata serverMetadata) {
+    private record PendingUpload(
+            Path screenshot,
+            ServerMetadata serverMetadata,
+            MinecraftProfileMetadata minecraftProfile,
+            boolean automatic
+    ) {
     }
 }

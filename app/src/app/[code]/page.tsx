@@ -9,7 +9,7 @@ import { ServerMetadata } from "@/components/server-metadata";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { findActiveImageByCode, SHORT_CODE_PATTERN } from "@/service";
 import { authorizeTarget } from "@/access";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { PassphraseInput } from "@/components/passphrase-input";
 import { getI18n } from "@/i18n/server";
@@ -205,7 +205,10 @@ export default async function ViewerPage({
                         alt={albumImage.title ?? "Minecraft screenshot"}
                       />
                     </a>
-                    {(albumImage.title || albumImage.server_name || albumImage.server_address) && (
+                    {(albumImage.title ||
+                      albumImage.server_name ||
+                      albumImage.server_address ||
+                      (albumImage.minecraft_name && albumImage.minecraft_id_public !== 0)) && (
                       <figcaption className="space-y-2 px-4 py-3 text-sm">
                         {albumImage.title && <p>{albumImage.title}</p>}
                         <ServerMetadata
@@ -218,6 +221,14 @@ export default async function ViewerPage({
                           }
                           compact
                         />
+                        {albumImage.minecraft_name && albumImage.minecraft_id_public !== 0 && (
+                          <p>
+                            <span className="text-muted-foreground">
+                              {t("viewer.minecraftId")}:{" "}
+                            </span>
+                            {albumImage.minecraft_name}
+                          </p>
+                        )}
                       </figcaption>
                     )}
                   </figure>
@@ -236,6 +247,15 @@ export default async function ViewerPage({
       ? `${(image.byte_size / 1024 / 1024).toFixed(1)} MB`
       : `${Math.ceil(image.byte_size / 1024)} KB`;
   const rawAlbumQuery = target.albumCode ? `?album=${encodeURIComponent(target.albumCode)}` : "";
+  const reportPageUrl = new URL(
+    `/${code}${rawAlbumQuery}`,
+    requestHost ? `https://${requestHost}` : env.PUBLIC_BASE_URL,
+  ).toString();
+  const reportUrl = env.ABUSE_CONTACT_EMAIL
+    ? `mailto:${encodeURIComponent(env.ABUSE_CONTACT_EMAIL)}?subject=${encodeURIComponent(
+        t("viewer.reportSubject", { code }),
+      )}&body=${encodeURIComponent(`${t("viewer.reportBody")}\n\n${reportPageUrl}`)}`
+    : null;
   return (
     <main className="mx-auto max-w-6xl">
       <Card className="bg-card/95 shadow-2xl">
@@ -275,6 +295,19 @@ export default async function ViewerPage({
               }
             />
           </div>
+          {image.minecraft_name && image.minecraft_id_public !== 0 && (
+            <div className="mt-4 text-sm">
+              <span className="text-muted-foreground">{t("viewer.minecraftId")}: </span>
+              <span className="font-medium">{image.minecraft_name}</span>
+            </div>
+          )}
+          {reportUrl && (
+            <div className="mt-6 border-t pt-4">
+              <a className={buttonVariants({ variant: "ghost", size: "sm" })} href={reportUrl}>
+                {t("viewer.reportImage")}
+              </a>
+            </div>
+          )}
         </CardContent>
       </Card>
     </main>

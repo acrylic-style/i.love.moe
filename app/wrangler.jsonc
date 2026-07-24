@@ -13,6 +13,8 @@
     "LEGAL_NOTICE_URL": "https://gist.github.com/acrylic-style/002d58b4416b55d36c965cfd6d81e1c2",
     "SAAS_CNAME_TARGET": "mc.moe.pictures",
     "SAAS_FALLBACK_ORIGIN": "fallback.moe.pictures",
+    "AWS_REGION": "ap-northeast-1",
+    "ABUSE_CONTACT_EMAIL": "abuse@acrylicstyle.xyz",
   },
   "secrets": {
     "required": [
@@ -23,6 +25,8 @@
       "STRIPE_WEBHOOK_SECRET",
       "CLOUDFLARE_SAAS_API_TOKEN",
       "CLOUDFLARE_SAAS_ZONE_ID",
+      "AWS_ACCESS_KEY_ID",
+      "AWS_SECRET_ACCESS_KEY",
     ],
   },
   "routes": [
@@ -49,6 +53,9 @@
       "bucket_name": "ilovemoe",
     },
   ],
+  "images": {
+    "binding": "IMAGE_TRANSFORM",
+  },
   "queues": {
     "producers": [{ "binding": "RETENTION_QUEUE", "queue": "i-love-moe-retention" }],
   },

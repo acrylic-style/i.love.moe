@@ -11,7 +11,7 @@ export default async function PrivacyPage() {
   const { locale } = await getI18n();
   if (locale === "en") return <EnglishPrivacy />;
   return (
-    <LegalDocument title="プライバシーポリシー" description="制定・施行日：2026年7月23日">
+    <LegalDocument title="プライバシーポリシー" description="制定・施行日：2026年7月24日">
       <p>
         i.らぶ.moeの運営者（以下「運営者」といいます。）は、本サービスで取り扱う利用者情報を、個人情報の保護に関する法律その他の関係法令に従い、次のとおり取り扱います。
       </p>
@@ -32,6 +32,11 @@ export default async function PrivacyPage() {
             スクリーンショット、画像タイトル、画像サイズ・寸法、アルバム名・説明・並び順、タグ、お気に入り、公開範囲、Minecraftサーバー名・アドレス、サーバーページのプロフィール・検証情報・編集者、接続する独自ドメイン、短縮URL、保存期限
           </li>
           <li>
+            <span className="text-foreground">Minecraftプロフィール情報：</span>
+            Modから画像と一緒に送信されたMinecraft UUID、Minecraft
+            ID、送信元端末、初回・最終確認日時、画像ごとの表示設定
+          </li>
+          <li>
             <span className="text-foreground">保護設定：</span>
             合言葉から生成したソルトとハッシュ。合言葉そのものは保存しません。
           </li>
@@ -42,7 +47,7 @@ export default async function PrivacyPage() {
           </li>
           <li>
             <span className="text-foreground">利用・セキュリティ情報：</span>
-            アップロードやアクセスの日時、エラー・処理ログ、レート制限と匿名お気に入りの重複防止のために秘密鍵付きハッシュへ変換したIPアドレス、レート制限のために同様に変換したメールアドレス、ブラウザや通信に伴う技術情報
+            アップロードやアクセスの日時、画像の自動確認結果・モデルバージョン、エラー・処理ログ、レート制限と匿名お気に入りの重複防止のために秘密鍵付きハッシュへ変換したIPアドレス、レート制限のために同様に変換したメールアドレス、ブラウザや通信に伴う技術情報
           </li>
         </LegalList>
       </LegalSection>
@@ -53,7 +58,9 @@ export default async function PrivacyPage() {
           <li>端末認証、マジックリンクログイン、セッション維持、本人確認</li>
           <li>Plusプランの申込み、支払い、契約状態の反映、解約および問い合わせ対応</li>
           <li>保存期限、利用上限、画像移行その他プランごとの機能管理</li>
-          <li>不正アクセス、合言葉の総当たり、過剰な端末登録、規約違反の検知・防止</li>
+          <li>
+            不正アクセス、合言葉の総当たり、過剰な端末登録、禁止コンテンツその他の規約違反の検知・防止
+          </li>
           <li>障害調査、品質改善、利用状況の把握、運営上必要な連絡</li>
           <li>法令上の義務の履行、紛争・権利侵害への対応</li>
         </LegalList>
@@ -70,6 +77,10 @@ export default async function PrivacyPage() {
           <li>
             Fabric
             Modは、端末を識別してアップロードを認証するためのトークンを利用者の端末に保持します。
+          </li>
+          <li>
+            Modは初回アップロードの直前に送信内容を案内し、利用者が同意した後に限り、画像と一緒にMinecraft
+            UUIDとMinecraft IDを送信します。画像をアップロードする前には送信しません。
           </li>
           <li>
             フッターで選んだ言語を最長1年間保存するため、SameSite=Lax属性の言語設定Cookieを使用します。
@@ -110,6 +121,11 @@ export default async function PrivacyPage() {
           <li>
             <span className="text-foreground">Stripe, Inc.およびその関連会社：</span>
             決済、継続課金、Customer Portal、不正利用防止
+          </li>
+          <li>
+            <span className="text-foreground">Amazon Web Services, Inc.：</span>
+            禁止コンテンツの自動確認。保存前の画像を縮小・変換した一時的な複製をAmazon
+            Rekognitionへ送信し、判定結果とモデルのバージョンを記録します。
           </li>
         </LegalList>
         <p>外部事業者による取扱いには、各事業者のプライバシーポリシーが適用されます。</p>
@@ -173,7 +189,7 @@ export default async function PrivacyPage() {
 
 function EnglishPrivacy() {
   return (
-    <LegalDocument title="Privacy Policy" description="Established and effective: July 23, 2026">
+    <LegalDocument title="Privacy Policy" description="Established and effective: July 24, 2026">
       <p>
         The operator of i.らぶ.moe (the “Operator”) handles user information processed through the
         Service as described below, in accordance with Japan’s Act on the Protection of Personal
@@ -200,6 +216,11 @@ function EnglishPrivacy() {
             short URLs, and expiration dates.
           </li>
           <li>
+            <span className="text-foreground">Minecraft profile information: </span>
+            Minecraft UUIDs and Minecraft IDs sent by the Mod with images, source devices, first-
+            and last-seen times, and per-image display settings.
+          </li>
+          <li>
             <span className="text-foreground">Protection settings: </span>
             Salts and hashes derived from passphrases. The passphrases themselves are not stored.
           </li>
@@ -211,10 +232,10 @@ function EnglishPrivacy() {
           </li>
           <li>
             <span className="text-foreground">Usage and security information: </span>
-            Upload and access times, error and processing logs, IP addresses transformed into keyed
-            hashes for rate limiting and anonymous-favorite deduplication, email addresses similarly
-            transformed for rate limiting, and technical information accompanying browser and
-            network communication.
+            Upload and access times, automated image-check results and model versions, error and
+            processing logs, IP addresses transformed into keyed hashes for rate limiting and
+            anonymous-favorite deduplication, email addresses similarly transformed for rate
+            limiting, and technical information accompanying browser and network communication.
           </li>
         </LegalList>
       </LegalSection>
@@ -234,7 +255,7 @@ function EnglishPrivacy() {
           <li>To manage expiration, usage limits, migration, and other plan-specific features.</li>
           <li>
             To detect and prevent unauthorized access, passphrase guessing, excessive device
-            registration, and violations of the Terms.
+            registration, prohibited content, and other violations of the Terms.
           </li>
           <li>
             To investigate failures, improve quality, understand usage, and send operational
@@ -256,6 +277,11 @@ function EnglishPrivacy() {
           </li>
           <li>
             The Fabric Mod stores a token on your device to identify it and authenticate uploads.
+          </li>
+          <li>
+            Immediately before the first upload, the Mod explains what will be sent. Only after you
+            agree does it send the Minecraft UUID and Minecraft ID with an image. It does not send
+            them before an upload.
           </li>
           <li>
             A SameSite=Lax preference cookie stores the language selected in the footer for up to
@@ -302,6 +328,12 @@ function EnglishPrivacy() {
           <li>
             <span className="text-foreground">Stripe, Inc. and its affiliates: </span>
             Payments, recurring billing, Customer Portal, and fraud prevention.
+          </li>
+          <li>
+            <span className="text-foreground">Amazon Web Services, Inc.: </span>
+            Automated prohibited-content checks. Before storage, a resized and converted temporary
+            copy of an image is sent to Amazon Rekognition. The moderation result and model version
+            are recorded.
           </li>
         </LegalList>
         <p>Each provider’s privacy policy applies to its handling of information.</p>

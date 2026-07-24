@@ -14,6 +14,7 @@ const IDENTIFIER_PATTERN = /^[0-9A-Za-z]{8}$/;
 const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?$/;
 const SERVER_IMAGE_PAGE_SIZE = 24;
 const FAVORITE_ATTEMPT_LIMIT = 60;
+const BRAND_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 
 export interface ParsedServerAddress {
   hostAscii: string;
@@ -26,6 +27,12 @@ export function displayServerAddress(address: string | null): string {
   const match = address.match(/^([^:]+)(:\d+)?$/);
   if (!match) return address;
   return `${domainToUnicode(match[1]!) || match[1]}${match[2] ?? ""}`;
+}
+
+export function normalizeServerBrandColor(value: FormDataEntryValue | null): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  return BRAND_COLOR_PATTERN.test(normalized) ? normalized : null;
 }
 
 export function encodeServerImageCursor(cursor: ServerImageCursor): string {
@@ -66,6 +73,8 @@ function decodeServerImageCursor(
 
 export interface ServerDetail {
   server: ServerRow;
+  serverFavoriteCount: number;
+  viewerServerFavorited: boolean;
   images: Array<ImageRow & { favorite_count: number; viewer_favorited: number }>;
   nextImageCursor: string | null;
   albums: Array<{
@@ -334,7 +343,7 @@ export async function publicServerDetail(
     }
   }
   imageBindings.push(SERVER_IMAGE_PAGE_SIZE + 1);
-  const [images, albums] = await Promise.all([
+  const [images, albums, serverFavorite] = await Promise.all([
     env.DB.prepare(
       `SELECT i.*, sl.code, ${favoriteCount} AS favorite_count,
         ${
@@ -368,12 +377,23 @@ export async function publicServerDetail(
     )
       .bind(Date.now(), Date.now(), server.id)
       .all<ServerDetail["albums"][number]>(),
+    env.DB.prepare(
+      `SELECT COUNT(*) AS favorite_count,
+        ${
+          options.voterIpHash ? "MAX(CASE WHEN voter_ip_hash = ? THEN 1 ELSE 0 END)" : "0"
+        } AS viewer_favorited
+        FROM server_favorites WHERE server_id = ?`,
+    )
+      .bind(...(options.voterIpHash ? [options.voterIpHash, server.id] : [server.id]))
+      .first<{ favorite_count: number; viewer_favorited: number }>(),
   ]);
   if (!server.owner_user_id && images.results.length === 0) return null;
   const plus = await canUseServerPlus(env, server.id);
   if (!plus) {
     server.icon_key = null;
     server.banner_key = null;
+    server.theme_color = null;
+    server.accent_color = null;
     server.featured_image_id = null;
   }
   const pageImages = images.results.slice(0, SERVER_IMAGE_PAGE_SIZE);
@@ -388,7 +408,14 @@ export async function publicServerDetail(
           id: lastImage.id,
         })
       : null;
-  return { server, images: pageImages, nextImageCursor, albums: albums.results };
+  return {
+    server,
+    serverFavoriteCount: serverFavorite?.favorite_count ?? 0,
+    viewerServerFavorited: Boolean(serverFavorite?.viewer_favorited),
+    images: pageImages,
+    nextImageCursor,
+    albums: albums.results,
+  };
 }
 
 export async function serverFavoriteIpHash(
@@ -468,6 +495,9 @@ export async function updateServerFavorite(
   const favorited = form.get("favorited");
   if (favorited !== "1" && favorited !== "0")
     return Response.json({ error: "invalid_favorite_state" }, { status: 400 });
+  const customDomainServerId = request.headers.get("x-i-love-moe-server-id");
+  if (customDomainServerId && customDomainServerId !== serverId)
+    return new Response(null, { status: 404 });
   const server = await env.DB.prepare(
     "SELECT id FROM servers WHERE id = ? AND verified_at IS NOT NULL",
   )
@@ -640,6 +670,33 @@ export async function uploadServerBranding(
   });
 }
 
+export async function updateServerBrandingColors(
+  request: Request,
+  env: CloudflareEnv,
+  serverId: string,
+): Promise<Response> {
+  if (!acceptsFormOrigin(request.headers.get("origin"), request.url))
+    return Response.json({ error: "invalid_origin" }, { status: 403 });
+  const session = await authenticateSession(request, env);
+  if (
+    !session ||
+    !(await canManageServer(env, serverId, session.user_id)) ||
+    !(await canUseServerPlus(env, serverId))
+  )
+    return new Response(null, { status: 404 });
+  const form = await request.formData();
+  const themeColor = normalizeServerBrandColor(form.get("themeColor"));
+  const accentColor = normalizeServerBrandColor(form.get("accentColor"));
+  if (!themeColor || !accentColor)
+    return Response.json({ error: "invalid_branding_color" }, { status: 400 });
+  await env.DB.prepare(
+    "UPDATE servers SET theme_color = ?, accent_color = ?, updated_at = ? WHERE id = ?",
+  )
+    .bind(themeColor, accentColor, Date.now(), serverId)
+    .run();
+  return new Response(null, { status: 204 });
+}
+
 export async function managedServerImages(
   env: CloudflareEnv,
   serverId: string,
@@ -774,6 +831,14 @@ export async function inviteServerEditor(
   const email = typeof rawEmail === "string" ? rawEmail.trim().toLowerCase() : "";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254)
     return Response.json({ error: "invalid_email" }, { status: 400 });
+  const invitee = await env.DB.prepare("SELECT id FROM users WHERE email = ? COLLATE NOCASE")
+    .bind(email)
+    .first<{ id: string }>();
+  if (!invitee)
+    return new Response(null, {
+      status: 303,
+      headers: { location: `/manage/servers/${serverId}` },
+    });
   const count = await env.DB.prepare(
     `SELECT
       (SELECT COUNT(*) FROM server_members WHERE server_id = ? AND role = 'editor') +

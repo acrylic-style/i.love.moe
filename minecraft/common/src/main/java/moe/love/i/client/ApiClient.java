@@ -32,7 +32,12 @@ final class ApiClient {
         this.baseUri = UriUtil.toHttpUri(config.baseUrl());
     }
 
-    CompletableFuture<UploadResult> upload(Path image, ServerMetadata serverMetadata, boolean automatic) {
+    CompletableFuture<UploadResult> upload(
+            Path image,
+            ServerMetadata serverMetadata,
+            MinecraftProfileMetadata minecraftProfile,
+            boolean automatic
+    ) {
         try {
             long size = Files.size(image);
             if (size == 0 || size > MAX_IMAGE_BYTES) {
@@ -42,7 +47,8 @@ final class ApiClient {
             return CompletableFuture.failedFuture(exception);
         }
 
-        return deviceToken().thenCompose(token -> sendUpload(image, serverMetadata, automatic, token, true));
+        return deviceToken().thenCompose(token ->
+                sendUpload(image, serverMetadata, minecraftProfile, automatic, token, true));
     }
 
     CompletableFuture<AccountResult> account() {
@@ -91,11 +97,19 @@ final class ApiClient {
         return deviceToken().thenCompose(token -> sendBrowserLogin(token, true));
     }
 
-    private CompletableFuture<UploadResult> sendUpload(Path image, ServerMetadata serverMetadata, boolean automatic, String token, boolean retryAuthentication) {
+    private CompletableFuture<UploadResult> sendUpload(
+            Path image,
+            ServerMetadata serverMetadata,
+            MinecraftProfileMetadata minecraftProfile,
+            boolean automatic,
+            String token,
+            boolean retryAuthentication
+    ) {
         HttpRequest request;
         try {
             HttpRequest.Builder builder = serverMetadata.addHeaders(authenticatedRequest("/api/v1/images", token)
                     .header("content-type", "image/png"));
+            if (minecraftProfile != null) minecraftProfile.addHeaders(builder);
             if (automatic) builder.header("x-i-love-moe-auto-upload", "true");
             request = builder
                     .POST(HttpRequest.BodyPublishers.ofFile(image))
@@ -109,7 +123,8 @@ final class ApiClient {
                 synchronized (this) {
                     registration = null;
                 }
-                return deviceToken().thenCompose(newToken -> sendUpload(image, serverMetadata, automatic, newToken, false));
+                return deviceToken().thenCompose(newToken ->
+                        sendUpload(image, serverMetadata, minecraftProfile, automatic, newToken, false));
             }
             requireStatus(response, 201);
             UploadResult result = GSON.fromJson(response.body(), UploadResult.class);

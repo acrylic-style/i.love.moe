@@ -8,6 +8,8 @@ import {
   validPassphrase,
 } from "./access";
 import { inspectPng, MAX_IMAGE_BYTES } from "./png";
+import { moderateImage, ModerationUnavailableError } from "./moderation";
+import { parseServerAddress } from "./servers";
 import type {
   BrowserLoginChallengeRow,
   DeviceRow,
@@ -29,6 +31,8 @@ const MAGIC_LINK_DEVICE_WINDOW_MS = 10 * 60 * 1000;
 const MAGIC_LINK_DEVICE_LIMIT = 3;
 const MAGIC_LINK_EMAIL_WINDOW_MS = 60 * 60 * 1000;
 const MAGIC_LINK_EMAIL_LIMIT = 3;
+const IMAGE_UPLOAD_ATTEMPT_WINDOW_MS = 60 * 60 * 1000;
+const IMAGE_UPLOAD_ATTEMPT_LIMIT = 60;
 export const SHORT_CODE_PATTERN = /^[0-9A-Za-z]{8}$/;
 
 export async function withApiErrors(operation: () => Promise<Response>): Promise<Response> {
@@ -107,10 +111,6 @@ export async function uploadImage(request: Request, env: CloudflareEnv): Promise
   }
   const declaredLength = Number(request.headers.get("content-length") ?? 0);
   if (declaredLength > MAX_IMAGE_BYTES) return apiError("image_too_large", 413);
-  const limits = await planLimits(env, device.user_id);
-  if (request.headers.get("x-i-love-moe-auto-upload") === "true" && limits.name !== "plus") {
-    return apiError("plus_required", 403);
-  }
 
   const body = new Uint8Array(await request.arrayBuffer());
   if (body.byteLength === 0 || body.byteLength > MAX_IMAGE_BYTES)
@@ -124,22 +124,130 @@ export async function uploadImage(request: Request, env: CloudflareEnv): Promise
   const serverName = decodeMetadataHeader(request.headers.get("x-minecraft-server-name"), 100);
   if (serverAddress === undefined || serverName === undefined)
     return apiError("invalid_server_metadata", 400);
-  const parsedServerAddress = serverAddress
-    ? (await import("./servers")).parseServerAddress(serverAddress)
-    : null;
+  const minecraftProfile = parseMinecraftProfileHeaders(request.headers);
+  if (minecraftProfile === undefined) return apiError("invalid_minecraft_profile", 400);
+  const parsedServerAddress = serverAddress ? parseServerAddress(serverAddress) : null;
+
+  return saveUploadedImage(request, env, {
+    body,
+    width: png.width,
+    height: png.height,
+    ownerDeviceId: device.id,
+    ownerUserId: device.user_id,
+    serverAddress,
+    serverName,
+    parsedServerAddress,
+    title: null,
+    uploadSource: "mod",
+    automatic: request.headers.get("x-i-love-moe-auto-upload") === "true",
+    actorKey: device.user_id ? `user:${device.user_id}` : `device:${device.id}`,
+    minecraftProfile,
+  });
+}
+
+export async function uploadManagedImage(request: Request, env: CloudflareEnv): Promise<Response> {
+  if (!acceptsFormOrigin(request.headers.get("origin"), request.url)) {
+    return apiError("invalid_origin", 403);
+  }
+  const session = await authenticateSession(request, env);
+  if (!session) return apiError("unauthorized", 401);
+
+  const declaredLength = Number(request.headers.get("content-length") ?? 0);
+  if (declaredLength > MAX_IMAGE_BYTES + 256 * 1024) {
+    return apiError("image_too_large", 413);
+  }
+  const form = await request.formData();
+  const image = form.get("image");
+  if (!(image instanceof File)) return apiError("image_required", 400);
+  if (image.type.split(";", 1)[0]?.trim().toLowerCase() !== "image/png") {
+    return apiError("invalid_image_type", 415);
+  }
+  if (image.size === 0 || image.size > MAX_IMAGE_BYTES) {
+    return apiError("image_too_large", 413);
+  }
+
+  const title = normalizeOptionalText(form.get("title"), 100);
+  const serverAddress = normalizeOptionalText(form.get("serverAddress"), 255);
+  const serverName = normalizeOptionalText(form.get("serverName"), 100);
+  if (title === undefined || serverAddress === undefined || serverName === undefined) {
+    return apiError("invalid_upload_metadata", 400);
+  }
+  const parsedServerAddress = serverAddress ? parseServerAddress(serverAddress) : null;
+  if (serverAddress && !parsedServerAddress) {
+    return apiError("invalid_server_metadata", 400);
+  }
+
+  const device = await env.DB.prepare(
+    "SELECT id, user_id FROM devices WHERE user_id = ? ORDER BY last_seen_at DESC LIMIT 1",
+  )
+    .bind(session.user_id)
+    .first<DeviceRow>();
+  if (!device) return apiError("device_not_found", 404);
+
+  const body = new Uint8Array(await image.arrayBuffer());
+  const png = inspectPng(body);
+  if (!png) return apiError("invalid_png", 400);
+
+  return saveUploadedImage(request, env, {
+    body,
+    width: png.width,
+    height: png.height,
+    ownerDeviceId: device.id,
+    ownerUserId: session.user_id,
+    serverAddress,
+    serverName,
+    parsedServerAddress,
+    title,
+    uploadSource: "web",
+    automatic: false,
+    actorKey: `user:${session.user_id}`,
+    minecraftProfile: null,
+  });
+}
+
+interface MinecraftProfileMetadata {
+  uuid: string;
+  name: string;
+}
+
+interface SaveUploadedImageInput {
+  body: Uint8Array;
+  width: number;
+  height: number;
+  ownerDeviceId: string;
+  ownerUserId: string | null;
+  serverAddress: string | null;
+  serverName: string | null;
+  parsedServerAddress: ReturnType<typeof parseServerAddress>;
+  title: string | null;
+  uploadSource: "mod" | "web";
+  automatic: boolean;
+  actorKey: string;
+  minecraftProfile: MinecraftProfileMetadata | null;
+}
+
+async function saveUploadedImage(
+  request: Request,
+  env: CloudflareEnv,
+  input: SaveUploadedImageInput,
+): Promise<Response> {
+  const limits = await planLimits(env, input.ownerUserId);
+  if (input.automatic && limits.name !== "plus") {
+    return apiError("plus_required", 403);
+  }
 
   const now = Date.now();
   const quotaStart = now - THIRTY_DAYS_MS;
-  const quota = device.user_id
+  const quota = input.ownerUserId
     ? await env.DB.prepare(
         "SELECT COUNT(*) AS count FROM images WHERE owner_user_id = ? AND created_at >= ?",
       )
-        .bind(device.user_id, quotaStart)
+        .bind(input.ownerUserId, quotaStart)
         .first<{ count: number }>()
     : await env.DB.prepare(
         "SELECT COUNT(*) AS count FROM images WHERE owner_device_id = ? AND created_at >= ?",
       )
-        .bind(device.id, quotaStart)
+        .bind(input.ownerDeviceId, quotaStart)
         .first<{ count: number }>();
   if ((quota?.count ?? 0) >= limits.uploadsPerThirtyDays) {
     return Response.json(
@@ -152,43 +260,99 @@ export async function uploadImage(request: Request, env: CloudflareEnv): Promise
     );
   }
 
+  const rateLimitResponse = await consumeImageUploadAttempt(request, env, input.actorKey, now);
+  if (rateLimitResponse) return rateLimitResponse;
+
+  let moderation: Awaited<ReturnType<typeof moderateImage>>;
+  try {
+    moderation = await moderateImage(input.body, env);
+  } catch (error) {
+    if (error instanceof ModerationUnavailableError) {
+      console.error(
+        "image_moderation_unavailable",
+        JSON.stringify({
+          reason: error.reason,
+          diagnostic: error.diagnostic ?? null,
+          cfRay: request.headers.get("cf-ray"),
+          uploadSource: input.uploadSource,
+        }),
+      );
+      return json({ error: "moderation_unavailable", reason: error.reason }, 503);
+    }
+    throw error;
+  }
+  if (!moderation.approved) return apiError("image_rejected", 422);
+
   const id = crypto.randomUUID();
   const code = await allocateShortCode(env);
   const storageTier = limits.name;
   const r2Key = `${storageTier}/${id}.png`;
   const expiresAt = now + limits.retentionDays * 24 * 60 * 60 * 1000;
-  await env.IMAGES.put(r2Key, body, {
+  await env.IMAGES.put(r2Key, input.body, {
     httpMetadata: { contentType: "image/png", cacheControl: "public, max-age=3600" },
     customMetadata: { imageId: id },
   });
 
   try {
-    await env.DB.batch([
+    const statements: D1PreparedStatement[] = [];
+    if (input.minecraftProfile) {
+      statements.push(
+        env.DB.prepare(
+          `INSERT INTO minecraft_profiles
+            (uuid, current_name, first_seen_at, last_seen_at) VALUES (?, ?, ?, ?)
+          ON CONFLICT(uuid) DO UPDATE SET
+            current_name = excluded.current_name,
+            last_seen_at = excluded.last_seen_at`,
+        ).bind(input.minecraftProfile.uuid, input.minecraftProfile.name, now, now),
+      );
+      if (input.ownerUserId) {
+        statements.push(
+          env.DB.prepare(
+            `INSERT INTO user_minecraft_profiles
+              (user_id, minecraft_uuid, source_device_id, status, linked_at, last_seen_at)
+            VALUES (?, ?, ?, 'reported', ?, ?)
+            ON CONFLICT(user_id, minecraft_uuid) DO UPDATE SET
+              source_device_id = excluded.source_device_id,
+              last_seen_at = excluded.last_seen_at`,
+          ).bind(input.ownerUserId, input.minecraftProfile.uuid, input.ownerDeviceId, now, now),
+        );
+      }
+    }
+    statements.push(
       env.DB.prepare(
         `INSERT INTO images
-        (id, owner_device_id, owner_user_id, r2_key, byte_size, width, height, created_at, expires_at,
-          server_address, server_name, server_host_ascii, server_port, storage_tier)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, owner_device_id, owner_user_id, r2_key, byte_size, width, height, created_at,
+          expires_at, server_address, server_name, server_host_ascii, server_port, storage_tier,
+          title, upload_source, moderated_at, moderation_model_version, minecraft_uuid,
+          minecraft_name, minecraft_id_public)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       ).bind(
         id,
-        device.id,
-        device.user_id,
+        input.ownerDeviceId,
+        input.ownerUserId,
         r2Key,
-        body.byteLength,
-        png.width,
-        png.height,
+        input.body.byteLength,
+        input.width,
+        input.height,
         now,
         expiresAt,
-        serverAddress,
-        serverName,
-        parsedServerAddress?.hostAscii ?? null,
-        parsedServerAddress?.port ?? null,
+        input.serverAddress,
+        input.serverName,
+        input.parsedServerAddress?.hostAscii ?? null,
+        input.parsedServerAddress?.port ?? null,
         storageTier,
+        input.title,
+        input.uploadSource,
+        now,
+        moderation.modelVersion,
+        input.minecraftProfile?.uuid ?? null,
+        input.minecraftProfile?.name ?? null,
       ),
       env.DB.prepare(
         "INSERT INTO short_links (code, target_type, target_id, created_at) VALUES (?, 'image', ?, ?)",
       ).bind(code, id, now),
-    ]);
+    );
+    await env.DB.batch(statements);
   } catch (error) {
     await env.IMAGES.delete(r2Key);
     throw error;
@@ -200,6 +364,60 @@ export async function uploadImage(request: Request, env: CloudflareEnv): Promise
       expiresAt: new Date(expiresAt).toISOString(),
     },
     201,
+  );
+}
+
+async function consumeImageUploadAttempt(
+  request: Request,
+  env: CloudflareEnv,
+  actorKey: string,
+  now: number,
+): Promise<Response | null> {
+  const clientIp = request.headers.get("cf-connecting-ip")?.trim().toLowerCase();
+  if (!clientIp) return apiError("client_ip_unavailable", 400);
+  if (!env.RATE_LIMIT_SALT || env.RATE_LIMIT_SALT.length < 32) {
+    console.error("RATE_LIMIT_SALT is missing or too short");
+    return apiError("rate_limit_unavailable", 503);
+  }
+
+  const windowStart = now - IMAGE_UPLOAD_ATTEMPT_WINDOW_MS;
+  const ipHash = await hmacSha256(env.RATE_LIMIT_SALT, `image-upload:${clientIp}`);
+  await env.DB.prepare(
+    `DELETE FROM image_upload_attempts WHERE id IN (
+      SELECT id FROM image_upload_attempts WHERE created_at <= ? LIMIT 500
+    )`,
+  )
+    .bind(windowStart)
+    .run();
+  const attempt = await env.DB.prepare(
+    `INSERT INTO image_upload_attempts (id, actor_key, ip_hash, created_at)
+      SELECT ?, ?, ?, ?
+      WHERE (SELECT COUNT(*) FROM image_upload_attempts
+        WHERE actor_key = ? AND created_at > ?) < ?
+      AND (SELECT COUNT(*) FROM image_upload_attempts
+        WHERE ip_hash = ? AND created_at > ?) < ?`,
+  )
+    .bind(
+      crypto.randomUUID(),
+      actorKey,
+      ipHash,
+      now,
+      actorKey,
+      windowStart,
+      IMAGE_UPLOAD_ATTEMPT_LIMIT,
+      ipHash,
+      windowStart,
+      IMAGE_UPLOAD_ATTEMPT_LIMIT,
+    )
+    .run();
+  if ((attempt.meta.changes ?? 0) === 1) return null;
+
+  return Response.json(
+    { error: "upload_rate_limited", retryAfterSeconds: 3600 },
+    {
+      status: 429,
+      headers: { "cache-control": "no-store", "retry-after": "3600" },
+    },
   );
 }
 
@@ -422,6 +640,17 @@ export async function verifyMagicLink(url: URL, env: CloudflareEnv): Promise<Res
     env.DB.prepare(
       "UPDATE images SET owner_user_id = ? WHERE owner_device_id = ? AND owner_user_id IS NULL",
     ).bind(user.id, magic.device_id),
+    env.DB.prepare(
+      `INSERT INTO user_minecraft_profiles
+        (user_id, minecraft_uuid, source_device_id, status, linked_at, last_seen_at)
+      SELECT ?, minecraft_uuid, ?, 'reported', ?, ?
+      FROM images
+      WHERE owner_device_id = ? AND minecraft_uuid IS NOT NULL
+      GROUP BY minecraft_uuid
+      ON CONFLICT(user_id, minecraft_uuid) DO UPDATE SET
+        source_device_id = excluded.source_device_id,
+        last_seen_at = excluded.last_seen_at`,
+    ).bind(user.id, magic.device_id, now, now, magic.device_id),
   ]);
 
   const sessionToken = randomToken();
@@ -541,6 +770,32 @@ export async function updateManagedImageTitle(
   return wantsJson
     ? json({ saved: true })
     : new Response(null, { status: 303, headers: { location: "/manage" } });
+}
+
+export async function updateManagedImageMinecraftIdVisibility(
+  request: Request,
+  env: CloudflareEnv,
+  id: string,
+): Promise<Response> {
+  if (!acceptsFormOrigin(request.headers.get("origin"), request.url)) {
+    return apiError("invalid_origin", 403);
+  }
+  const session = await authenticateSession(request, env);
+  if (!session) return apiError("not_found", 404);
+  const form = await request.formData();
+  const isPublic = form.get("minecraftIdPublic");
+  if (isPublic !== "true" && isPublic !== "false") {
+    return apiError("invalid_minecraft_id_visibility", 400);
+  }
+  const result = await env.DB.prepare(
+    `UPDATE images SET minecraft_id_public = ?
+      WHERE id = ? AND owner_user_id = ? AND minecraft_uuid IS NOT NULL
+        AND deleted_at IS NULL AND expires_at > ?`,
+  )
+    .bind(isPublic === "true" ? 1 : 0, id, session.user_id, Date.now())
+    .run();
+  if ((result.meta.changes ?? 0) !== 1) return apiError("not_found", 404);
+  return json({ saved: true, minecraftIdPublic: isPublic === "true" });
 }
 
 export async function updateManagedImageVisibility(
@@ -693,7 +948,8 @@ export async function managedImages(
   const rows = await env.DB.prepare(
     `SELECT i.id, i.title, i.server_address, i.server_name, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
       i.expires_at, i.deleted_at, i.visibility, i.discoverability, i.server_id, i.access_version,
-      (i.passphrase_hash IS NOT NULL) AS has_passphrase, i.storage_tier, s.code
+      (i.passphrase_hash IS NOT NULL) AS has_passphrase, i.storage_tier, i.minecraft_uuid,
+      i.minecraft_name, i.minecraft_id_public, s.code
     FROM images i JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id
     WHERE i.owner_user_id = ? AND i.deleted_at IS NULL AND i.expires_at > ?
     ORDER BY i.created_at DESC LIMIT ?`,
@@ -711,7 +967,8 @@ export async function managedImageDetail(
   return env.DB.prepare(
     `SELECT i.id, i.title, i.server_address, i.server_name, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
       i.expires_at, i.deleted_at, i.visibility, i.discoverability, i.server_id, i.access_version,
-      (i.passphrase_hash IS NOT NULL) AS has_passphrase, i.storage_tier, s.code
+      (i.passphrase_hash IS NOT NULL) AS has_passphrase, i.storage_tier, i.minecraft_uuid,
+      i.minecraft_name, i.minecraft_id_public, s.code
     FROM images i JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id AND s.retired_at IS NULL
     WHERE i.id = ? AND i.owner_user_id = ? AND i.deleted_at IS NULL AND i.expires_at > ?`,
   )
@@ -725,7 +982,8 @@ export async function findActiveImageByCode(
 ): Promise<ImageLookupRow | null> {
   return env.DB.prepare(
     `SELECT i.id, i.title, i.server_address, i.server_name, i.owner_device_id, i.owner_user_id, i.r2_key, i.byte_size, i.width,
-      i.height, i.created_at, i.expires_at, i.deleted_at, i.visibility, i.discoverability, i.server_id, i.access_version, i.storage_tier, s.code
+      i.height, i.created_at, i.expires_at, i.deleted_at, i.visibility, i.discoverability, i.server_id, i.access_version,
+      i.storage_tier, i.minecraft_uuid, i.minecraft_name, i.minecraft_id_public, s.code
     FROM short_links s JOIN images i ON i.id = s.target_id
     WHERE s.code = ? AND s.target_type = 'image' AND s.retired_at IS NULL
       AND i.deleted_at IS NULL AND i.expires_at > ?`,
@@ -844,6 +1102,25 @@ export function normalizeOptionalText(
   const normalized = value.trim();
   if (normalized.length === 0) return null;
   return Array.from(normalized).length <= maxLength ? normalized : undefined;
+}
+
+export function parseMinecraftProfileHeaders(
+  headers: Headers,
+): MinecraftProfileMetadata | null | undefined {
+  const uuidHeader = headers.get("x-minecraft-player-uuid");
+  const encodedName = headers.get("x-minecraft-player-name");
+  if (uuidHeader === null && encodedName === null) return null;
+  if (uuidHeader === null || encodedName === null) return undefined;
+  const uuid = uuidHeader.trim().toLowerCase();
+  const name = decodeMetadataHeader(encodedName, 16);
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(uuid) ||
+    !name ||
+    !/^[0-9A-Za-z_]{1,16}$/.test(name)
+  ) {
+    return undefined;
+  }
+  return { uuid, name };
 }
 
 export function decodeMetadataHeader(

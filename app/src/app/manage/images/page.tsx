@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { getEnv } from "@/cloudflare";
+import { ImageUploadForm } from "@/components/image-upload-form";
 import { ImageLibrary } from "@/components/image-library";
 import { buttonVariants } from "@/components/ui/button";
 import { imageLibrary, parseLibraryFilters } from "@/library";
@@ -36,6 +37,7 @@ export default async function ImagesPage({
           {t("common.backManage")}
         </a>
       </header>
+      <ImageUploadForm />
       <ImageLibrary
         images={library.images}
         tags={library.tags}

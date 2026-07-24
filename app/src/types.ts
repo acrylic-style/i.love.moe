@@ -11,6 +11,7 @@ export interface EmailBinding {
 export interface Env {
   DB: D1Database;
   IMAGES: R2Bucket;
+  IMAGE_TRANSFORM: ImagesBinding;
   EMAIL: EmailBinding;
   PUBLIC_BASE_URL: string;
   MINECRAFT_PUBLIC_BASE_URL: string;
@@ -28,6 +29,10 @@ export interface Env {
   SAAS_CNAME_TARGET?: string;
   SAAS_FALLBACK_ORIGIN?: string;
   LEGAL_NOTICE_URL?: string;
+  AWS_ACCESS_KEY_ID: string;
+  AWS_SECRET_ACCESS_KEY: string;
+  AWS_REGION: string;
+  ABUSE_CONTACT_EMAIL: string;
 }
 
 export interface RetentionMessage {
@@ -67,6 +72,12 @@ export interface ImageRow {
   access_version: number;
   has_passphrase?: number;
   storage_tier: "free" | "plus";
+  upload_source?: "mod" | "web";
+  moderated_at?: number | null;
+  moderation_model_version?: string | null;
+  minecraft_uuid?: string | null;
+  minecraft_name?: string | null;
+  minecraft_id_public?: number;
   discoverability: Discoverability;
   server_id: string | null;
   server_host_ascii?: string | null;
@@ -133,6 +144,8 @@ export interface ServerRow {
   verified_at: number | null;
   icon_key: string | null;
   banner_key: string | null;
+  theme_color: string | null;
+  accent_color: string | null;
   featured_image_id: string | null;
   created_at: number;
   updated_at: number;

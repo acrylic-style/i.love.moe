@@ -358,7 +358,9 @@ async function ownedAlbum(
 async function albumImages(env: CloudflareEnv, albumId: string): Promise<AlbumImageRow[]> {
   const rows = await env.DB.prepare(
     `SELECT i.id, i.title, i.server_address, i.server_name, i.r2_key, i.byte_size, i.width, i.height,
-      i.created_at, i.expires_at, i.deleted_at, i.visibility, i.discoverability, i.server_id, i.access_version, i.storage_tier, s.code, ai.position
+      i.created_at, i.expires_at, i.deleted_at, i.visibility, i.discoverability, i.server_id,
+      i.access_version, i.storage_tier, i.minecraft_uuid, i.minecraft_name, i.minecraft_id_public,
+      s.code, ai.position
     FROM album_images ai JOIN images i ON i.id = ai.image_id
       JOIN short_links s ON s.target_type = 'image' AND s.target_id = i.id AND s.retired_at IS NULL
     WHERE ai.album_id = ? AND i.deleted_at IS NULL AND i.expires_at > ?

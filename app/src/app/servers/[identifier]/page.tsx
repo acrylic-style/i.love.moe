@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { CSSProperties } from "react";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { activeCustomDomainForServer } from "@/custom-domains";
@@ -91,10 +92,32 @@ export async function ServerGallery({
   const { server, images, albums } = detail;
   const url = (path: string) => `${customOrigin ?? ""}${path}`;
   const displayAddress = displayServerAddress(server.display_address ?? null);
+  const accentColor = server.accent_color;
+  const themeColor = server.theme_color;
+  const accentForeground = accentColor ? readableForeground(accentColor) : undefined;
+  const serverStyle = accentColor
+    ? ({
+        "--primary": accentColor,
+        "--primary-foreground": accentForeground,
+        "--ring": accentColor,
+        "--accent": `color-mix(in srgb, ${accentColor} 22%, var(--background))`,
+        "--accent-foreground": "var(--foreground)",
+      } as CSSProperties)
+    : undefined;
   const claimUrl = new URL("/manage/servers/claim", getEnv().PUBLIC_BASE_URL);
   claimUrl.searchParams.set("address", server.display_address ?? "");
   return (
-    <main className="mx-auto max-w-6xl space-y-10">
+    <main className="relative isolate mx-auto max-w-6xl space-y-10" style={serverStyle}>
+      {themeColor && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -inset-x-8 -top-8 -bottom-8 -z-10"
+          style={{
+            backgroundColor: `color-mix(in srgb, ${themeColor} 3%, var(--background))`,
+            backgroundImage: `radial-gradient(ellipse 90% 55% at 50% 0%, color-mix(in srgb, ${themeColor} 12%, transparent), transparent 75%)`,
+          }}
+        />
+      )}
       {server.banner_key && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -113,7 +136,18 @@ export async function ServerGallery({
           />
         )}
         <div>
-          <h1 className="text-4xl font-bold">{server.display_name ?? displayAddress}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-4xl font-bold">{server.display_name ?? displayAddress}</h1>
+            {server.verified_at && (
+              <FavoriteButton
+                endpoint={`/servers/favorites/server/${server.id}`}
+                initialCount={detail.serverFavoriteCount}
+                initialFavorited={detail.viewerServerFavorited}
+                label={t("servers.favorite")}
+                failedLabel={t("library.error.request_failed")}
+              />
+            )}
+          </div>
           <p className="mt-2 text-muted-foreground">
             {displayAddress}
             {server.verified_at && (
@@ -224,6 +258,13 @@ export async function ServerGallery({
       )}
     </main>
   );
+}
+
+function readableForeground(hex: string): string {
+  const red = Number.parseInt(hex.slice(1, 3), 16);
+  const green = Number.parseInt(hex.slice(3, 5), 16);
+  const blue = Number.parseInt(hex.slice(5, 7), 16);
+  return red * 0.299 + green * 0.587 + blue * 0.114 > 160 ? "#111827" : "#ffffff";
 }
 
 function galleryQueryUrl(

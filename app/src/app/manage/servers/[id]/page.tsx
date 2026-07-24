@@ -5,6 +5,7 @@ import { AsyncForm } from "@/components/async-form";
 import { ServerManager } from "@/components/server-manager";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { customDomainForServer } from "@/custom-domains";
 import { getI18n } from "@/i18n/server";
 import { authenticateSessionToken } from "@/service";
@@ -144,7 +145,46 @@ export default async function ManageServerPage({
           />
           {plus && (
             <section className="space-y-4">
-              <h2 className="text-2xl font-semibold">{ja ? "画像設定" : "Branding"}</h2>
+              <h2 className="text-2xl font-semibold">{ja ? "ブランディング" : "Branding"}</h2>
+              <AsyncForm
+                className="space-y-4 rounded-lg border p-4"
+                action={`/manage/servers/${id}/branding/colors`}
+                idle={ja ? "色を保存" : "Save colors"}
+                pending={ja ? "保存中…" : "Saving…"}
+                saved={ja ? "保存しました" : "Saved"}
+                failed={ja ? "失敗しました" : "Failed"}
+              >
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="grid gap-2 text-sm">
+                    <span className="font-medium">{ja ? "テーマカラー" : "Theme color"}</span>
+                    <span className="text-muted-foreground">
+                      {ja ? "公開ページの背景に使います。" : "Used for the public-page background."}
+                    </span>
+                    <Input
+                      className="h-12 w-24 p-1"
+                      type="color"
+                      name="themeColor"
+                      defaultValue={detail.server.theme_color ?? "#744b82"}
+                      required
+                    />
+                  </label>
+                  <label className="grid gap-2 text-sm">
+                    <span className="font-medium">{ja ? "アクセントカラー" : "Accent color"}</span>
+                    <span className="text-muted-foreground">
+                      {ja
+                        ? "ボタンや選択中の項目に使います。"
+                        : "Used for buttons and selected controls."}
+                    </span>
+                    <Input
+                      className="h-12 w-24 p-1"
+                      type="color"
+                      name="accentColor"
+                      defaultValue={detail.server.accent_color ?? "#e889b6"}
+                      required
+                    />
+                  </label>
+                </div>
+              </AsyncForm>
               {(["icon", "banner"] as const).map((kind) => (
                 <AsyncForm
                   key={kind}
@@ -295,24 +335,31 @@ export default async function ManageServerPage({
             <section className="space-y-4">
               <h2 className="text-2xl font-semibold">{ja ? "編集者" : "Editors"}</h2>
               {plus ? (
-                <AsyncForm
-                  className="flex gap-2"
-                  action={`/manage/servers/${id}/editors`}
-                  idle={ja ? "招待" : "Invite"}
-                  pending={ja ? "送信中…" : "Sending…"}
-                  saved={ja ? "送信しました" : "Sent"}
-                  failed={ja ? "失敗しました" : "Failed"}
-                  resetOnSuccess
-                >
-                  <input
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-                    type="email"
-                    name="email"
-                    required
-                    maxLength={254}
-                    placeholder="editor@example.com"
-                  />
-                </AsyncForm>
+                <div className="space-y-2">
+                  <AsyncForm
+                    className="flex gap-2"
+                    action={`/manage/servers/${id}/editors`}
+                    idle={ja ? "招待" : "Invite"}
+                    pending={ja ? "送信中…" : "Sending…"}
+                    saved={ja ? "送信しました" : "Sent"}
+                    failed={ja ? "失敗しました" : "Failed"}
+                    resetOnSuccess
+                  >
+                    <input
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                      type="email"
+                      name="email"
+                      required
+                      maxLength={254}
+                      placeholder="editor@example.com"
+                    />
+                  </AsyncForm>
+                  <p className="text-sm text-muted-foreground">
+                    {ja
+                      ? "ログインしたことがあるユーザーのみ招待できます。"
+                      : "Only users who have signed in before can be invited."}
+                  </p>
+                </div>
               ) : (
                 <p className="text-muted-foreground">
                   {ja
