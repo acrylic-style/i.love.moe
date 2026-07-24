@@ -42,7 +42,7 @@ export default async function PrivacyPage() {
           </li>
           <li>
             <span className="text-foreground">利用・セキュリティ情報：</span>
-            アップロードやアクセスの日時、エラー・処理ログ、レート制限のために秘密鍵付きハッシュへ変換したIPアドレスとメールアドレス、ブラウザや通信に伴う技術情報
+            アップロードやアクセスの日時、エラー・処理ログ、レート制限と匿名お気に入りの重複防止のために秘密鍵付きハッシュへ変換したIPアドレス、レート制限のために同様に変換したメールアドレス、ブラウザや通信に伴う技術情報
           </li>
         </LegalList>
       </LegalSection>
@@ -211,8 +211,9 @@ function EnglishPrivacy() {
           </li>
           <li>
             <span className="text-foreground">Usage and security information: </span>
-            Upload and access times, error and processing logs, IP and email addresses transformed
-            into keyed hashes for rate limiting, and technical information accompanying browser and
+            Upload and access times, error and processing logs, IP addresses transformed into keyed
+            hashes for rate limiting and anonymous-favorite deduplication, email addresses similarly
+            transformed for rate limiting, and technical information accompanying browser and
             network communication.
           </li>
         </LegalList>

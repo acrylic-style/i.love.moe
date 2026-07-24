@@ -1,7 +1,8 @@
 import { notFound, redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { getEnv } from "@/cloudflare";
 import { resolveCustomDomain } from "@/custom-domains";
-import { publicServerDetail } from "@/servers";
+import { type PublicServerImageSort, publicServerDetail, serverFavoriteIpHash } from "@/servers";
 import { ServerGallery } from "../../[identifier]/page";
 import type { Metadata } from "next";
 
@@ -42,16 +43,24 @@ export async function generateMetadata({
 
 export default async function CustomDomainServerPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ hostname: string }>;
+  searchParams: Promise<{ sort?: string; cursor?: string }>;
 }) {
   const { hostname } = await params;
+  const query = await searchParams;
+  const sort: PublicServerImageSort = query.sort === "favorites" ? "favorites" : "newest";
   const env = getEnv();
   const domain = await resolveCustomDomain(env, hostname);
   if (!domain) notFound();
   const identifier = domain.server_slug ?? domain.server_code;
   if (domain.status === "grace") redirect(`${env.PUBLIC_BASE_URL}/servers/${identifier}`);
-  const detail = await publicServerDetail(env, identifier);
+  const detail = await publicServerDetail(env, identifier, {
+    sort,
+    cursor: query.cursor,
+    voterIpHash: await serverFavoriteIpHash(env, await headers()),
+  });
   if (!detail) notFound();
-  return <ServerGallery detail={detail} customOrigin={`https://${hostname}`} />;
+  return <ServerGallery detail={detail} customOrigin={`https://${hostname}`} sort={sort} />;
 }

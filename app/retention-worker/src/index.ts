@@ -45,6 +45,20 @@ export default {
         WHERE status IN ('pending', 'failed') AND attempts < 5 ORDER BY updated_at LIMIT 100`,
     ).all<{ image_id: string }>();
     for (const job of jobs.results) await env.RETENTION_QUEUE.send({ imageId: job.image_id });
+    await env.DB.prepare(
+      `DELETE FROM server_image_favorites WHERE image_id IN (
+        SELECT id FROM images WHERE deleted_at IS NOT NULL OR expires_at <= ? LIMIT 500
+      )`,
+    )
+      .bind(Date.now())
+      .run();
+    await env.DB.prepare(
+      `DELETE FROM server_favorite_attempts WHERE id IN (
+        SELECT id FROM server_favorite_attempts WHERE created_at <= ? LIMIT 500
+      )`,
+    )
+      .bind(Date.now() - 60 * 60 * 1000)
+      .run();
     await reconcileCustomDomains(env);
   },
 };

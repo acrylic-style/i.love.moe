@@ -40,6 +40,12 @@ export default {
       url.pathname = `/servers/domain/${encodeURIComponent(hostname)}`;
       return openNextWorker.fetch(copyRequest(request, url), env, context);
     }
+    if (/^\/servers\/favorites\/[0-9a-f-]{36}$/.test(url.pathname)) {
+      const headers = new Headers(request.headers);
+      headers.set("x-i-love-moe-custom-domain", hostname);
+      headers.set("x-i-love-moe-server-id", domain.server_id);
+      return openNextWorker.fetch(new Request(request, { headers }), env, context);
+    }
     if (
       url.pathname.startsWith("/_next/") ||
       url.pathname === "/favicon.ico" ||

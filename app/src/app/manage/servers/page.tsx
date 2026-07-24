@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getEnv } from "@/cloudflare";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { VerifiedMark } from "@/components/verified-mark";
 import { getI18n } from "@/i18n/server";
 import { authenticateSessionToken } from "@/service";
 import { managedServers } from "@/servers";
@@ -37,7 +38,11 @@ export default async function ManageServersPage() {
                 <CardHeader>
                   <CardTitle>{server.display_name ?? server.display_address}</CardTitle>
                   <CardDescription>
-                    {server.verified_at ? t("servers.verified") : t("servers.unverified")}
+                    {server.verified_at ? (
+                      <VerifiedMark label={t("servers.verified")} />
+                    ) : (
+                      t("servers.unverified")
+                    )}
                   </CardDescription>
                 </CardHeader>
               </Card>

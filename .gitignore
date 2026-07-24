@@ -14,3 +14,4 @@ minecraft/**/build/
 minecraft/bin/
 minecraft/run/
 *.log
+*.tsbuildinfo

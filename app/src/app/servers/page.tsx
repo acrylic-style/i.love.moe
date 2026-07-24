@@ -1,6 +1,7 @@
 import { getEnv } from "@/cloudflare";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { VerifiedMark } from "@/components/verified-mark";
 import { getI18n } from "@/i18n/server";
 import { displayServerAddress, listPublicServers } from "@/servers";
 
@@ -36,7 +37,12 @@ export default async function ServersPage({
                   </CardTitle>
                   <CardDescription>
                     {displayServerAddress(server.display_address ?? null)}
-                    {server.verified_at ? ` · ${t("servers.verified")}` : ""}
+                    {server.verified_at && (
+                      <>
+                        {" · "}
+                        <VerifiedMark label={t("servers.verified")} />
+                      </>
+                    )}
                   </CardDescription>
                 </CardHeader>
               </Card>

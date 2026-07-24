@@ -4,6 +4,7 @@ import {
   displayServerAddress,
   isDisallowedHost,
   parseServerAddress,
+  serverFavoriteIpHash,
 } from "../src/servers";
 
 describe("Minecraft server address normalization", () => {
@@ -46,5 +47,24 @@ describe("Minecraft server address normalization", () => {
   it("requires a qualified hostname", () => {
     expect(asciiHostname("example")).toBeNull();
     expect(parseServerAddress("singleplayer")).toBeNull();
+  });
+
+  it("uses a stable keyed IP hash for anonymous favorites", async () => {
+    const env = { RATE_LIMIT_SALT: "s".repeat(32) } as CloudflareEnv;
+    const first = await serverFavoriteIpHash(
+      env,
+      new Headers({ host: "example.com", "cf-connecting-ip": "203.0.113.9" }),
+    );
+    const second = await serverFavoriteIpHash(
+      env,
+      new Headers({ host: "example.com", "cf-connecting-ip": "203.0.113.9" }),
+    );
+    const other = await serverFavoriteIpHash(
+      env,
+      new Headers({ host: "example.com", "cf-connecting-ip": "203.0.113.10" }),
+    );
+    expect(first).toBe(second);
+    expect(first).not.toBe(other);
+    expect(first).toMatch(/^[0-9a-f]{64}$/);
   });
 });

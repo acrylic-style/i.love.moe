@@ -424,6 +424,7 @@ export async function bulkOrganizeImages(request: Request, env: CloudflareEnv): 
           "UPDATE short_links SET retired_at = COALESCE(retired_at, ?) WHERE code = ?",
         ).bind(now, image.code),
         env.DB.prepare("DELETE FROM album_images WHERE image_id = ?").bind(image.id),
+        env.DB.prepare("DELETE FROM server_image_favorites WHERE image_id = ?").bind(image.id),
       ]);
       succeededIds.push(image.id);
     } catch {

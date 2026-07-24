@@ -1,9 +1,9 @@
-import { randomBase62, randomToken, sha256 } from "./crypto";
+import { hmacSha256, randomBase62, randomToken, sha256 } from "./crypto";
 import { resolve4, resolve6, resolveSrv } from "node:dns/promises";
 import { createConnection } from "node:net";
 import { domainToUnicode } from "node:url";
 import { planLimits } from "./plans";
-import { authenticateSession, normalizeOptionalText } from "./service";
+import { acceptsFormOrigin, authenticateSession, normalizeOptionalText } from "./service";
 import type { ImageRow, ServerRow } from "./types";
 
 const CHALLENGE_LIFETIME_MS = 30 * 60 * 1000;
@@ -12,6 +12,8 @@ const USER_ATTEMPT_LIMIT = 10;
 const SERVER_ATTEMPT_LIMIT = 5;
 const IDENTIFIER_PATTERN = /^[0-9A-Za-z]{8}$/;
 const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?$/;
+const SERVER_IMAGE_PAGE_SIZE = 24;
+const FAVORITE_ATTEMPT_LIMIT = 60;
 
 export interface ParsedServerAddress {
   hostAscii: string;
@@ -26,9 +28,46 @@ export function displayServerAddress(address: string | null): string {
   return `${domainToUnicode(match[1]!) || match[1]}${match[2] ?? ""}`;
 }
 
+export function encodeServerImageCursor(cursor: ServerImageCursor): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(cursor));
+  return btoa(String.fromCharCode(...bytes))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "");
+}
+
+function decodeServerImageCursor(
+  value: string,
+  expected: Pick<ServerImageCursor, "scope" | "sort" | "filter">,
+): ServerImageCursor | null {
+  if (!value || value.length > 512) return null;
+  try {
+    const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+    const bytes = Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
+    const cursor = JSON.parse(new TextDecoder().decode(bytes)) as Partial<ServerImageCursor>;
+    if (
+      cursor.scope !== expected.scope ||
+      cursor.sort !== expected.sort ||
+      cursor.filter !== expected.filter ||
+      typeof cursor.createdAt !== "number" ||
+      !Number.isFinite(cursor.createdAt) ||
+      typeof cursor.id !== "string" ||
+      cursor.id.length > 64 ||
+      (expected.sort === "favorites" &&
+        (typeof cursor.favoriteCount !== "number" || !Number.isFinite(cursor.favoriteCount)))
+    )
+      return null;
+    return cursor as ServerImageCursor;
+  } catch {
+    return null;
+  }
+}
+
 export interface ServerDetail {
   server: ServerRow;
-  images: ImageRow[];
+  images: Array<ImageRow & { favorite_count: number; viewer_favorited: number }>;
+  nextImageCursor: string | null;
   albums: Array<{
     id: string;
     title: string;
@@ -37,6 +76,18 @@ export interface ServerDetail {
     cover_code: string | null;
     image_count: number;
   }>;
+}
+
+export type PublicServerImageSort = "newest" | "favorites";
+export type ManagedServerImageFilter = "visible" | "hidden" | "featured";
+
+interface ServerImageCursor {
+  scope: "public" | "managed";
+  sort?: PublicServerImageSort;
+  filter?: ManagedServerImageFilter;
+  favoriteCount?: number;
+  createdAt: number;
+  id: string;
 }
 
 export interface ManagedServerDetail {
@@ -235,20 +286,67 @@ export async function unclaimedServerById(
 export async function publicServerDetail(
   env: CloudflareEnv,
   identifier: string,
+  options: {
+    sort?: PublicServerImageSort;
+    cursor?: string;
+    voterIpHash?: string | null;
+  } = {},
 ): Promise<ServerDetail | null> {
   const server = await findServer(env, identifier);
   if (!server) return null;
+  const sort = options.sort === "favorites" ? "favorites" : "newest";
+  const cursor = decodeServerImageCursor(options.cursor ?? "", {
+    scope: "public",
+    sort,
+  });
+  const favoriteCount = "(SELECT COUNT(*) FROM server_image_favorites sf WHERE sf.image_id = i.id)";
+  const imageClauses = [
+    "i.server_id = ?",
+    "i.discoverability = 'public'",
+    "i.visibility = 'unlisted'",
+    "i.deleted_at IS NULL",
+    "i.expires_at > ?",
+    "h.image_id IS NULL",
+  ];
+  const imageBindings: unknown[] = options.voterIpHash
+    ? [options.voterIpHash, server.id, Date.now()]
+    : [server.id, Date.now()];
+  if (cursor) {
+    if (sort === "favorites") {
+      imageClauses.push(
+        `(${favoriteCount} < ? OR (${favoriteCount} = ? AND
+          (i.created_at < ? OR (i.created_at = ? AND i.id < ?))))`,
+      );
+      imageBindings.push(
+        cursor.favoriteCount ?? 0,
+        cursor.favoriteCount ?? 0,
+        cursor.createdAt,
+        cursor.createdAt,
+        cursor.id,
+      );
+    } else {
+      imageClauses.push("(i.created_at < ? OR (i.created_at = ? AND i.id < ?))");
+      imageBindings.push(cursor.createdAt, cursor.createdAt, cursor.id);
+    }
+  }
+  imageBindings.push(SERVER_IMAGE_PAGE_SIZE + 1);
   const [images, albums] = await Promise.all([
     env.DB.prepare(
-      `SELECT i.*, sl.code FROM images i
+      `SELECT i.*, sl.code, ${favoriteCount} AS favorite_count,
+        ${
+          options.voterIpHash
+            ? "EXISTS(SELECT 1 FROM server_image_favorites vf WHERE vf.image_id = i.id AND vf.voter_ip_hash = ?)"
+            : "0"
+        } AS viewer_favorited
+        FROM images i
         JOIN short_links sl ON sl.target_type = 'image' AND sl.target_id = i.id AND sl.retired_at IS NULL
         LEFT JOIN server_feed_hidden h ON h.server_id = i.server_id AND h.image_id = i.id
-        WHERE i.server_id = ? AND i.discoverability = 'public' AND i.visibility = 'unlisted'
-          AND i.deleted_at IS NULL AND i.expires_at > ? AND h.image_id IS NULL
-        ORDER BY i.created_at DESC LIMIT 60`,
+        WHERE ${imageClauses.join(" AND ")}
+        ORDER BY ${sort === "favorites" ? "favorite_count DESC, " : ""}i.created_at DESC, i.id DESC
+        LIMIT ?`,
     )
-      .bind(server.id, Date.now())
-      .all<ImageRow>(),
+      .bind(...imageBindings)
+      .all<ImageRow & { favorite_count: number; viewer_favorited: number }>(),
     env.DB.prepare(
       `SELECT a.id, a.title, a.description, sl.code,
         (SELECT isl.code FROM album_images ai
@@ -274,12 +372,105 @@ export async function publicServerDetail(
     server.banner_key = null;
     server.featured_image_id = null;
   }
-  const orderedImages = [...images.results];
-  if (server.featured_image_id)
-    orderedImages.sort((left, right) =>
-      left.id === server.featured_image_id ? -1 : right.id === server.featured_image_id ? 1 : 0,
-    );
-  return { server, images: orderedImages, albums: albums.results };
+  const pageImages = images.results.slice(0, SERVER_IMAGE_PAGE_SIZE);
+  const lastImage = pageImages.at(-1);
+  const nextImageCursor =
+    images.results.length > SERVER_IMAGE_PAGE_SIZE && lastImage
+      ? encodeServerImageCursor({
+          scope: "public",
+          sort,
+          favoriteCount: lastImage.favorite_count,
+          createdAt: lastImage.created_at,
+          id: lastImage.id,
+        })
+      : null;
+  return { server, images: pageImages, nextImageCursor, albums: albums.results };
+}
+
+export async function serverFavoriteIpHash(
+  env: CloudflareEnv,
+  headers: Headers,
+): Promise<string | null> {
+  if (!env.RATE_LIMIT_SALT || env.RATE_LIMIT_SALT.length < 32) return null;
+  const forwardedIp = headers.get("cf-connecting-ip")?.trim().toLowerCase();
+  const host = headers.get("host")?.split(":")[0]?.toLowerCase();
+  const ip =
+    forwardedIp || (host === "localhost" || host === "127.0.0.1" ? "local-development" : null);
+  return ip ? hmacSha256(env.RATE_LIMIT_SALT, `server-favorite:${ip}`) : null;
+}
+
+export async function updateServerImageFavorite(
+  request: Request,
+  env: CloudflareEnv,
+  imageId: string,
+): Promise<Response> {
+  if (!acceptsFormOrigin(request.headers.get("origin"), request.url))
+    return Response.json({ error: "invalid_origin" }, { status: 403 });
+  const voterIpHash = await serverFavoriteIpHash(env, request.headers);
+  if (!voterIpHash) return Response.json({ error: "favorite_unavailable" }, { status: 503 });
+  const form = await request.formData();
+  const favorited = form.get("favorited");
+  if (favorited !== "1" && favorited !== "0")
+    return Response.json({ error: "invalid_favorite_state" }, { status: 400 });
+
+  const customDomainServerId = request.headers.get("x-i-love-moe-server-id");
+  const image = await env.DB.prepare(
+    `SELECT id, server_id FROM images
+      WHERE id = ? AND discoverability = 'public' AND visibility = 'unlisted'
+        AND deleted_at IS NULL AND expires_at > ?`,
+  )
+    .bind(imageId, Date.now())
+    .first<{ id: string; server_id: string | null }>();
+  if (!image || (customDomainServerId && image.server_id !== customDomainServerId))
+    return new Response(null, { status: 404 });
+  if (!(await consumeFavoriteAttempt(env, voterIpHash)))
+    return Response.json({ error: "rate_limited" }, { status: 429 });
+
+  if (favorited === "1") {
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO server_image_favorites
+        (image_id, voter_ip_hash, created_at) VALUES (?, ?, ?)`,
+    )
+      .bind(imageId, voterIpHash, Date.now())
+      .run();
+  } else {
+    await env.DB.prepare(
+      "DELETE FROM server_image_favorites WHERE image_id = ? AND voter_ip_hash = ?",
+    )
+      .bind(imageId, voterIpHash)
+      .run();
+  }
+  const count = await env.DB.prepare(
+    "SELECT COUNT(*) AS count FROM server_image_favorites WHERE image_id = ?",
+  )
+    .bind(imageId)
+    .first<{ count: number }>();
+  return Response.json(
+    { favorited: favorited === "1", count: count?.count ?? 0 },
+    { headers: { "cache-control": "no-store" } },
+  );
+}
+
+async function consumeFavoriteAttempt(env: CloudflareEnv, voterIpHash: string): Promise<boolean> {
+  const now = Date.now();
+  const windowStart = now - 60 * 60 * 1000;
+  await env.DB.prepare(
+    `DELETE FROM server_favorite_attempts WHERE id IN (
+      SELECT id FROM server_favorite_attempts WHERE created_at <= ? LIMIT 500
+    )`,
+  )
+    .bind(windowStart)
+    .run();
+  const result = await env.DB.prepare(
+    `INSERT INTO server_favorite_attempts (id, voter_ip_hash, created_at)
+      SELECT ?, ?, ? WHERE (
+        SELECT COUNT(*) FROM server_favorite_attempts
+        WHERE voter_ip_hash = ? AND created_at > ?
+      ) < ?`,
+  )
+    .bind(crypto.randomUUID(), voterIpHash, now, voterIpHash, windowStart, FAVORITE_ATTEMPT_LIMIT)
+    .run();
+  return (result.meta.changes ?? 0) === 1;
 }
 
 export async function listPublicServers(env: CloudflareEnv, query: string): Promise<ServerRow[]> {
@@ -383,19 +574,60 @@ export async function uploadServerBranding(
 export async function managedServerImages(
   env: CloudflareEnv,
   serverId: string,
-): Promise<Array<ImageRow & { hidden_from_feed: number }>> {
+  options: { filter?: ManagedServerImageFilter; cursor?: string } = {},
+): Promise<{
+  images: Array<ImageRow & { hidden_from_feed: number }>;
+  nextCursor: string | null;
+}> {
+  const filter: ManagedServerImageFilter =
+    options.filter === "hidden" || options.filter === "featured" ? options.filter : "visible";
+  const cursor = decodeServerImageCursor(options.cursor ?? "", {
+    scope: "managed",
+    filter,
+  });
+  const clauses = [
+    "i.server_id = ?",
+    "i.discoverability = 'public'",
+    "i.visibility = 'unlisted'",
+    "i.deleted_at IS NULL",
+    "i.expires_at > ?",
+  ];
+  const bindings: unknown[] = [serverId, Date.now()];
+  if (filter === "visible") clauses.push("h.image_id IS NULL");
+  if (filter === "hidden") clauses.push("h.image_id IS NOT NULL");
+  if (filter === "featured") {
+    clauses.push("i.id = (SELECT featured_image_id FROM servers WHERE id = ?)");
+    bindings.push(serverId);
+  }
+  if (cursor) {
+    clauses.push("(i.created_at < ? OR (i.created_at = ? AND i.id < ?))");
+    bindings.push(cursor.createdAt, cursor.createdAt, cursor.id);
+  }
+  bindings.push(SERVER_IMAGE_PAGE_SIZE + 1);
   const rows = await env.DB.prepare(
     `SELECT i.*, sl.code, (h.image_id IS NOT NULL) AS hidden_from_feed
       FROM images i
       JOIN short_links sl ON sl.target_type = 'image' AND sl.target_id = i.id AND sl.retired_at IS NULL
       LEFT JOIN server_feed_hidden h ON h.server_id = i.server_id AND h.image_id = i.id
-      WHERE i.server_id = ? AND i.discoverability = 'public' AND i.visibility = 'unlisted'
-        AND i.deleted_at IS NULL AND i.expires_at > ?
-      ORDER BY i.created_at DESC LIMIT 100`,
+      WHERE ${clauses.join(" AND ")}
+      ORDER BY i.created_at DESC, i.id DESC LIMIT ?`,
   )
-    .bind(serverId, Date.now())
+    .bind(...bindings)
     .all<ImageRow & { hidden_from_feed: number }>();
-  return rows.results;
+  const images = rows.results.slice(0, SERVER_IMAGE_PAGE_SIZE);
+  const lastImage = images.at(-1);
+  return {
+    images,
+    nextCursor:
+      rows.results.length > SERVER_IMAGE_PAGE_SIZE && lastImage
+        ? encodeServerImageCursor({
+            scope: "managed",
+            filter,
+            createdAt: lastImage.created_at,
+            id: lastImage.id,
+          })
+        : null,
+  };
 }
 
 export async function updateServerFeed(

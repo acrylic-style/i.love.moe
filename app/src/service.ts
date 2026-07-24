@@ -771,6 +771,7 @@ async function retireImage(env: CloudflareEnv, id: string, code: string): Promis
       "UPDATE short_links SET retired_at = COALESCE(retired_at, ?) WHERE code = ?",
     ).bind(now, code),
     env.DB.prepare("DELETE FROM album_images WHERE image_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM server_image_favorites WHERE image_id = ?").bind(id),
   ]);
 }
 

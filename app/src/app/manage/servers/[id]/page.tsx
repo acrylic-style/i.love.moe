@@ -8,21 +8,35 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { customDomainForServer } from "@/custom-domains";
 import { getI18n } from "@/i18n/server";
 import { authenticateSessionToken } from "@/service";
-import { canUseServerPlus, managedServerDetail, managedServerImages } from "@/servers";
+import {
+  canUseServerPlus,
+  type ManagedServerImageFilter,
+  managedServerDetail,
+  managedServerImages,
+} from "@/servers";
 
 export const dynamic = "force-dynamic";
 
-export default async function ManageServerPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ManageServerPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ feed?: string; cursor?: string }>;
+}) {
   const { locale, t } = await getI18n();
   const { id } = await params;
+  const query = await searchParams;
+  const feedFilter: ManagedServerImageFilter =
+    query.feed === "hidden" || query.feed === "featured" ? query.feed : "visible";
   const env = getEnv();
   const session = await authenticateSessionToken((await cookies()).get("session")?.value, env);
   if (!session) notFound();
-  const [detail, domain, plus, feedImages, editors] = await Promise.all([
+  const [detail, domain, plus, feedPage, editors] = await Promise.all([
     managedServerDetail(env, session.user_id, id),
     customDomainForServer(env, id),
     canUseServerPlus(env, id),
-    managedServerImages(env, id),
+    managedServerImages(env, id, { filter: feedFilter, cursor: query.cursor }),
     env.DB.prepare(
       `SELECT m.user_id, u.email FROM server_members m JOIN users u ON u.id = m.user_id
         WHERE m.server_id = ? AND m.role = 'editor' ORDER BY m.created_at`,
@@ -31,6 +45,7 @@ export default async function ManageServerPage({ params }: { params: Promise<{ i
       .all<{ user_id: string; email: string }>(),
   ]);
   if (!detail) notFound();
+  const feedImages = feedPage.images;
   const ja = locale === "ja";
   const copy = ja
     ? {
@@ -158,10 +173,42 @@ export default async function ManageServerPage({ params }: { params: Promise<{ i
             </section>
           )}
           <section className="space-y-4">
-            <h2 className="text-2xl font-semibold">{ja ? "公開フィード" : "Public feed"}</h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-2xl font-semibold">{ja ? "公開フィード" : "Public feed"}</h2>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    ["visible", ja ? "掲載中" : "Visible"],
+                    ["hidden", ja ? "非表示" : "Hidden"],
+                    ["featured", ja ? "注目画像" : "Featured"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <a
+                    className={buttonVariants({
+                      variant: feedFilter === value ? "default" : "outline",
+                      size: "sm",
+                    })}
+                    href={`?feed=${value}`}
+                    key={value}
+                  >
+                    {label}
+                  </a>
+                ))}
+              </div>
+            </div>
             {feedImages.length === 0 ? (
               <p className="text-muted-foreground">
-                {ja ? "一般公開画像はまだありません。" : "There are no public images yet."}
+                {feedFilter === "hidden"
+                  ? ja
+                    ? "非表示の画像はありません。"
+                    : "There are no hidden images."
+                  : feedFilter === "featured"
+                    ? ja
+                      ? "注目画像は設定されていません。"
+                      : "No featured image is selected."
+                    : ja
+                      ? "掲載中の画像はまだありません。"
+                      : "There are no visible images yet."}
               </p>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
@@ -172,6 +219,7 @@ export default async function ManageServerPage({ params }: { params: Promise<{ i
                       className="aspect-video w-full object-cover"
                       src={`/raw/${image.code}`}
                       alt={image.title ?? ""}
+                      loading="lazy"
                     />
                     <div className="space-y-3 p-3">
                       <p className="truncate font-medium">{image.title ?? image.code}</p>
@@ -233,6 +281,14 @@ export default async function ManageServerPage({ params }: { params: Promise<{ i
                   </div>
                 ))}
               </div>
+            )}
+            {feedPage.nextCursor && (
+              <a
+                className={buttonVariants({ variant: "outline" })}
+                href={`?feed=${feedFilter}&cursor=${encodeURIComponent(feedPage.nextCursor)}`}
+              >
+                {ja ? "次へ" : "Next"}
+              </a>
             )}
           </section>
           {detail.role === "owner" && (

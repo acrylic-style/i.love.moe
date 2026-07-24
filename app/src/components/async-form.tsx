@@ -28,7 +28,7 @@ export function StatusButton({
   return (
     <Button
       {...props}
-      className={cn("relative", props.className)}
+      className={cn("relative px-8", props.className)}
       disabled={props.disabled || status === "pending"}
     >
       {status !== "idle" && (

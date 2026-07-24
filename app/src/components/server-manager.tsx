@@ -6,6 +6,7 @@ import { type AsyncStatus, StatusButton } from "./async-form";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
+import { VerifiedMark } from "./verified-mark";
 
 interface Address {
   id: string;
@@ -244,7 +245,7 @@ export function ServerManager({
               <div>
                 <p className="font-medium">{address.display_address}</p>
                 <p className="text-sm text-muted-foreground">
-                  {address.verified_at ? copy.verified : copy.pending}
+                  {address.verified_at ? <VerifiedMark label={copy.verified} /> : copy.pending}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
