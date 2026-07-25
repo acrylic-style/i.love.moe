@@ -15,6 +15,7 @@ import { PassphraseInput } from "@/components/passphrase-input";
 import { getI18n } from "@/i18n/server";
 import { buildOpenGraphImage } from "@/og";
 import { activeCustomDomainForServer } from "@/custom-domains";
+import { Badge } from "@/components/ui/badge";
 
 export const dynamic = "force-dynamic";
 
@@ -241,6 +242,16 @@ export default async function ViewerPage({
     );
   }
   const image = target.image;
+  const visibility =
+    image.visibility === "unlisted" && image.discoverability === "public"
+      ? "public"
+      : image.visibility;
+  const visibilityBadgeClass = {
+    public: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    unlisted: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+    passphrase: "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+    private: "border-muted-foreground/30 bg-muted text-muted-foreground",
+  }[visibility];
   const expires = new Date(image.expires_at).toISOString();
   const size =
     image.byte_size >= 1024 * 1024
@@ -259,11 +270,14 @@ export default async function ViewerPage({
   return (
     <main className="mx-auto max-w-6xl">
       <Card className="bg-card/95 shadow-2xl">
-        {image.title && (
-          <CardHeader>
-            <CardTitle className="text-2xl sm:text-4xl">{image.title}</CardTitle>
-          </CardHeader>
-        )}
+        <CardHeader>
+          <div className="flex flex-wrap items-center gap-3">
+            {image.title && <CardTitle className="text-2xl sm:text-4xl">{image.title}</CardTitle>}
+            <Badge variant="outline" className={visibilityBadgeClass}>
+              {t(`viewer.visibility.${visibility}`)}
+            </Badge>
+          </div>
+        </CardHeader>
         <CardContent>
           {/* Uploaded PNG dimensions are validated server-side; Next image optimization is unnecessary here. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
