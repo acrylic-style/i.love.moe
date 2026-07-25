@@ -18,6 +18,7 @@ import { getI18n } from "@/i18n/server";
 import { verifiedMinecraftProfiles } from "@/web-auth";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DashboardImageUploader } from "@/components/dashboard-image-uploader";
 
 export const dynamic = "force-dynamic";
 
@@ -165,6 +166,11 @@ export default async function ManagePage({
           )}
         </CardContent>
       </Card>
+
+      <DashboardImageUploader
+        minecraftProfiles={minecraftProfiles}
+        allowProtected={limits.protectedSharing}
+      />
 
       <Card>
         <CardHeader>

@@ -781,21 +781,121 @@ export async function updateManagedImageTitle(
   if (!session) return wantsJson ? apiError("not_found", 404) : new Response(null, { status: 404 });
   const form = await request.formData();
   const title = normalizeOptionalText(form.get("title"), 100);
-  if (title === undefined)
+  const description = normalizeOptionalText(form.get("description"), 1000);
+  if (title === undefined || description === undefined)
     return wantsJson
       ? apiError("invalid_image_title", 400)
       : redirectWithError("/manage", "invalid_image_title");
   const result = await env.DB.prepare(
-    `UPDATE images SET title = ?
+    `UPDATE images SET title = ?, description = ?
     WHERE id = ? AND owner_user_id = ? AND deleted_at IS NULL AND expires_at > ?`,
   )
-    .bind(title, id, session.user_id, Date.now())
+    .bind(title, description, id, session.user_id, Date.now())
     .run();
   if ((result.meta.changes ?? 0) !== 1)
     return wantsJson ? apiError("not_found", 404) : new Response(null, { status: 404 });
   return wantsJson
     ? json({ saved: true })
     : new Response(null, { status: 303, headers: { location: "/manage" } });
+}
+
+export async function finalizeManagedImageUpload(
+  request: Request,
+  env: CloudflareEnv,
+  id: string,
+): Promise<Response> {
+  if (!acceptsFormOrigin(request.headers.get("origin"), request.url)) {
+    return apiError("invalid_origin", 403);
+  }
+  const session = await authenticateSession(request, env);
+  if (!session) return apiError("not_found", 404);
+
+  const form = await request.formData();
+  const title = normalizeOptionalText(form.get("title"), 100);
+  const description = normalizeOptionalText(form.get("description"), 1000);
+  const share = parseShareMode(form.get("visibility"));
+  const passphrase = form.get("passphrase");
+  const minecraftUuidValue = form.get("minecraftProfileUuid");
+  const minecraftUuid =
+    typeof minecraftUuidValue === "string" && minecraftUuidValue.trim()
+      ? minecraftUuidValue.trim().toLowerCase()
+      : null;
+  if (
+    title === undefined ||
+    description === undefined ||
+    !share ||
+    (minecraftUuid &&
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+        minecraftUuid,
+      ))
+  ) {
+    return apiError("invalid_upload_metadata", 400);
+  }
+
+  const current = await env.DB.prepare(
+    `SELECT discoverability FROM images
+      WHERE id = ? AND owner_user_id = ? AND deleted_at IS NULL AND expires_at > ?`,
+  )
+    .bind(id, session.user_id, Date.now())
+    .first<{ discoverability: string }>();
+  if (!current) return apiError("not_found", 404);
+
+  const { visibility, discoverability } = share;
+  const limits = await planLimits(env, session.user_id);
+  if (visibility !== "unlisted" && !limits.protectedSharing) {
+    return apiError("plus_required", 403);
+  }
+  if (visibility === "passphrase" && !validPassphrase(passphrase)) {
+    return apiError("invalid_passphrase", 400);
+  }
+
+  const minecraftProfile = minecraftUuid
+    ? await env.DB.prepare(
+        `SELECT p.uuid, p.current_name AS name
+          FROM user_minecraft_profiles ump
+          JOIN minecraft_profiles p ON p.uuid = ump.minecraft_uuid
+          WHERE ump.user_id = ? AND ump.minecraft_uuid = ? AND ump.status = 'verified'`,
+      )
+        .bind(session.user_id, minecraftUuid)
+        .first<MinecraftProfileMetadata>()
+    : null;
+  if (minecraftUuid && !minecraftProfile) return apiError("invalid_minecraft_profile", 400);
+
+  const passphraseRecord =
+    visibility === "passphrase" ? await createPassphraseRecord(passphrase as string) : null;
+  const result = await env.DB.prepare(
+    `UPDATE images SET
+      title = ?, description = ?, visibility = ?, discoverability = ?,
+      passphrase_salt = ?, passphrase_hash = ?, passphrase_iterations = ?,
+      minecraft_uuid = ?, minecraft_name = ?, minecraft_id_public = 1,
+      access_version = access_version + 1
+    WHERE id = ? AND owner_user_id = ? AND deleted_at IS NULL AND expires_at > ?`,
+  )
+    .bind(
+      title,
+      description,
+      visibility,
+      discoverability,
+      passphraseRecord?.passphrase_salt ?? null,
+      passphraseRecord?.passphrase_hash ?? null,
+      passphraseRecord?.passphrase_iterations ?? null,
+      minecraftProfile?.uuid ?? null,
+      minecraftProfile?.name ?? null,
+      id,
+      session.user_id,
+      Date.now(),
+    )
+    .run();
+  if ((result.meta.changes ?? 0) !== 1) return apiError("not_found", 404);
+
+  if (discoverability === "public") {
+    await associatePublicImageWithServer(env, id);
+    if (current.discoverability !== "public") {
+      await notifyPublishedImageSafely(env, id);
+    }
+  }
+  await revokeTargetGrants(env, "image", id);
+  return json({ saved: true });
 }
 
 export async function updateManagedImageMinecraftIdVisibility(
@@ -996,7 +1096,7 @@ export async function managedImages(
 ): Promise<ImageRow[]> {
   const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
   const rows = await env.DB.prepare(
-    `SELECT i.id, i.title, i.server_address, i.server_name, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
+    `SELECT i.id, i.title, i.description, i.server_address, i.server_name, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
       i.expires_at, i.deleted_at, i.visibility, i.discoverability, i.server_id, i.access_version,
       (i.passphrase_hash IS NOT NULL) AS has_passphrase, i.storage_tier, i.minecraft_uuid,
       i.minecraft_name, i.minecraft_id_public, s.code
@@ -1015,7 +1115,7 @@ export async function managedImageDetail(
   id: string,
 ): Promise<ImageRow | null> {
   return env.DB.prepare(
-    `SELECT i.id, i.title, i.server_address, i.server_name, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
+    `SELECT i.id, i.title, i.description, i.server_address, i.server_name, i.r2_key, i.byte_size, i.width, i.height, i.created_at,
       i.expires_at, i.deleted_at, i.visibility, i.discoverability, i.server_id, i.access_version,
       (i.passphrase_hash IS NOT NULL) AS has_passphrase, i.storage_tier, i.minecraft_uuid,
       i.minecraft_name, i.minecraft_id_public, s.code
@@ -1031,7 +1131,7 @@ export async function findActiveImageByCode(
   code: string,
 ): Promise<ImageLookupRow | null> {
   return env.DB.prepare(
-    `SELECT i.id, i.title, i.server_address, i.server_name, i.owner_device_id, i.owner_user_id, i.r2_key, i.byte_size, i.width,
+    `SELECT i.id, i.title, i.description, i.server_address, i.server_name, i.owner_device_id, i.owner_user_id, i.r2_key, i.byte_size, i.width,
       i.height, i.created_at, i.expires_at, i.deleted_at, i.visibility, i.discoverability, i.server_id, i.access_version,
       i.storage_tier, i.minecraft_uuid, i.minecraft_name, i.minecraft_id_public,
       CASE WHEN verified_server.verified_at IS NOT NULL

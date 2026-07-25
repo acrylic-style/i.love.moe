@@ -80,7 +80,11 @@ export default async function EditImagePage({ params }: { params: Promise<{ id: 
           </div>
           <ServerMetadata name={image.server_name} address={image.server_address} />
           <div className="space-y-8 border-t pt-8">
-            <ImageTitleForm imageId={image.id} initialTitle={image.title} />
+            <ImageTitleForm
+              imageId={image.id}
+              initialTitle={image.title}
+              initialDescription={image.description}
+            />
             {image.minecraft_uuid && image.minecraft_name && (
               <MinecraftIdVisibilityForm
                 imageId={image.id}

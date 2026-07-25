@@ -95,6 +95,17 @@ describe("D1 migrations", () => {
       database.prepare("SELECT minecraft_id_public FROM images WHERE id = ?").get("image-1"),
     ).toEqual({ minecraft_id_public: 1 });
     database
+      .prepare("UPDATE images SET description = ? WHERE id = ?")
+      .run("A dashboard upload", "image-1");
+    expect(database.prepare("SELECT description FROM images WHERE id = ?").get("image-1")).toEqual({
+      description: "A dashboard upload",
+    });
+    expect(() =>
+      database
+        .prepare("UPDATE images SET description = ? WHERE id = ?")
+        .run("x".repeat(1001), "image-1"),
+    ).toThrow();
+    database
       .prepare(
         `UPDATE user_minecraft_profiles SET status = 'verified', verified_at = ?
           WHERE user_id = ? AND minecraft_uuid = ?`,

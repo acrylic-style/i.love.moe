@@ -16,7 +16,7 @@
     "AWS_REGION": "ap-northeast-1",
     "ABUSE_CONTACT_EMAIL": "abuse@acrylicstyle.xyz",
     "MINECRAFT_VERIFICATION_HOST": "verify.moe.pictures",
-    "WEB_REGISTRATION_ENABLED": "false",
+    "WEB_REGISTRATION_ENABLED": "true",
   },
   "secrets": {
     "required": [

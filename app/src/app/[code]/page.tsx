@@ -277,6 +277,9 @@ export default async function ViewerPage({
               {t(`viewer.visibility.${visibility}`)}
             </Badge>
           </div>
+          {image.description && (
+            <CardDescription className="whitespace-pre-wrap">{image.description}</CardDescription>
+          )}
         </CardHeader>
         <CardContent>
           {/* Uploaded PNG dimensions are validated server-side; Next image optimization is unnecessary here. */}

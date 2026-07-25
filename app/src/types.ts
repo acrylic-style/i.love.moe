@@ -62,6 +62,7 @@ export interface AccessControlledRow {
 export interface ImageRow {
   id: string;
   title: string | null;
+  description: string | null;
   server_address: string | null;
   server_name: string | null;
   r2_key: string;
