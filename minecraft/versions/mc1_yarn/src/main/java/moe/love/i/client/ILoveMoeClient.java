@@ -6,7 +6,6 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.ClickEvent;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -69,9 +68,7 @@ public final class ILoveMoeClient implements ClientModInitializer {
     private static void handleScreenshot(Path screenshot) {
         MinecraftClient client = MinecraftClient.getInstance();
         ServerMetadata metadata = MinecraftServerMetadata.from(client.getCurrentServerEntry());
-        MinecraftProfileMetadata profile = MinecraftProfileMetadata.of(
-                client.getGameProfile().id(),
-                client.getGameProfile().name());
+        MinecraftProfileMetadata profile = MinecraftUi.profile(client);
         if (config.autoUploadEnabled()) {
             if (config.minecraftProfileDisclosureAccepted()) {
                 beginUpload(screenshot, metadata, profile, true);
@@ -89,7 +86,7 @@ public final class ILoveMoeClient implements ClientModInitializer {
         MutableText action = Text.translatable("message.i_love_moe.action.upload")
                 .styled(style -> style.withColor(Formatting.AQUA)
                         .withUnderline(true)
-                        .withClickEvent(new ClickEvent.RunCommand("/ilovemoe upload " + id)));
+                        .withClickEvent(MinecraftUi.runCommand("/ilovemoe upload " + id)));
         sendMessage(Text.translatable("message.i_love_moe.screenshot.saved", action));
     }
 
@@ -146,10 +143,10 @@ public final class ILoveMoeClient implements ClientModInitializer {
         MutableText accept = Text.translatable("message.i_love_moe.action.accept_upload")
                 .styled(style -> style.withColor(Formatting.GREEN)
                         .withUnderline(true)
-                        .withClickEvent(new ClickEvent.RunCommand("/ilovemoe upload-confirm " + pendingId)));
+                        .withClickEvent(MinecraftUi.runCommand("/ilovemoe upload-confirm " + pendingId)));
         MutableText cancel = Text.translatable("message.i_love_moe.action.cancel")
                 .styled(style -> style.withColor(Formatting.RED)
-                        .withClickEvent(new ClickEvent.RunCommand("/ilovemoe upload-cancel " + pendingId)));
+                        .withClickEvent(MinecraftUi.runCommand("/ilovemoe upload-cancel " + pendingId)));
         sendMessage(Text.translatable(
                 "message.i_love_moe.minecraft_profile.disclosure",
                 accept,
@@ -180,17 +177,17 @@ public final class ILoveMoeClient implements ClientModInitializer {
             client.keyboard.setClipboard(displayUrl);
 
             MutableText open = Text.translatable("message.i_love_moe.action.open").styled(style -> style.withColor(Formatting.AQUA)
-                    .withClickEvent(new ClickEvent.OpenUrl(UriUtil.toHttpUri(displayUrl))));
+                    .withClickEvent(MinecraftUi.openUrl(UriUtil.toHttpUri(displayUrl))));
             MutableText insert = Text.translatable("message.i_love_moe.action.insert").styled(style -> style.withColor(Formatting.GREEN)
-                    .withClickEvent(new ClickEvent.SuggestCommand(displayUrl)));
+                    .withClickEvent(MinecraftUi.suggestCommand(displayUrl)));
             MutableText copy = Text.translatable("message.i_love_moe.action.copy").styled(style -> style.withColor(Formatting.YELLOW)
-                    .withClickEvent(new ClickEvent.CopyToClipboard(displayUrl)));
+                    .withClickEvent(MinecraftUi.copyToClipboard(displayUrl)));
             MutableText rename = Text.translatable("message.i_love_moe.action.rename").styled(style -> style.withColor(Formatting.GOLD)
-                    .withClickEvent(new ClickEvent.SuggestCommand("/ilovemoe rename " + result.id + " ")));
+                    .withClickEvent(MinecraftUi.suggestCommand("/ilovemoe rename " + result.id + " ")));
             MutableText publish = Text.translatable("message.i_love_moe.action.publish").styled(style -> style.withColor(Formatting.LIGHT_PURPLE)
-                    .withClickEvent(new ClickEvent.RunCommand("/ilovemoe publish " + result.id)));
+                    .withClickEvent(MinecraftUi.runCommand("/ilovemoe publish " + result.id)));
             MutableText delete = Text.translatable("message.i_love_moe.action.delete").styled(style -> style.withColor(Formatting.RED)
-                    .withClickEvent(new ClickEvent.RunCommand("/ilovemoe delete " + result.id)));
+                    .withClickEvent(MinecraftUi.runCommand("/ilovemoe delete " + result.id)));
             sendMessage(Text.translatable("message.i_love_moe.upload.success", open, insert, copy, rename, publish, delete));
         }));
     }
@@ -243,7 +240,7 @@ public final class ILoveMoeClient implements ClientModInitializer {
                 config.setAutoUpload(false);
                 MutableText plus = Text.translatable("message.i_love_moe.action.view_plus").styled(style -> style.withColor(Formatting.AQUA)
                         .withUnderline(true)
-                        .withClickEvent(new ClickEvent.OpenUrl(UriUtil.toHttpUri(config.baseUrl() + "/plus"))));
+                        .withClickEvent(MinecraftUi.openUrl(UriUtil.toHttpUri(config.baseUrl() + "/plus"))));
                 sendMessage(Text.translatable("message.i_love_moe.auto_upload.plus_required", plus).formatted(Formatting.RED));
                 return;
             }
@@ -271,7 +268,7 @@ public final class ILoveMoeClient implements ClientModInitializer {
             MutableText open = Text.translatable("message.i_love_moe.action.open").styled(style -> style
                     .withColor(Formatting.AQUA)
                     .withUnderline(true)
-                    .withClickEvent(new ClickEvent.OpenUrl(UriUtil.toHttpUri(result.url))));
+                    .withClickEvent(MinecraftUi.openUrl(UriUtil.toHttpUri(result.url))));
             sendMessage(Text.translatable("message.i_love_moe.login.form_ready", open).formatted(Formatting.GREEN));
         }));
         return 1;
@@ -281,7 +278,7 @@ public final class ILoveMoeClient implements ClientModInitializer {
         String url = config.baseUrl() + "/manage";
         MutableText link = Text.translatable("message.i_love_moe.action.open_manage").styled(style -> style.withColor(Formatting.AQUA)
                 .withUnderline(true)
-                .withClickEvent(new ClickEvent.OpenUrl(UriUtil.toHttpUri(url))));
+                .withClickEvent(MinecraftUi.openUrl(UriUtil.toHttpUri(url))));
         sendMessage(link);
         return 1;
     }
@@ -316,8 +313,7 @@ public final class ILoveMoeClient implements ClientModInitializer {
     }
 
     private static void sendMessage(Text message) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.inGameHud != null) client.inGameHud.getChatHud().addMessage(message);
+        MinecraftUi.sendMessage(message);
     }
 
     private record PendingUpload(

@@ -1,6 +1,6 @@
 # i.らぶ.moe Fabric Mod
 
-Fabric 1.21.11、26.1.2、26.2向けクライアントModです。F2でPNGの保存が成功した直後をMixinで捕捉し、クリック可能なアップロード操作をチャットへ追加します。
+Fabric 1.20.1、1.20.4、1.21.11、26.1.2、26.2向けクライアントModです。F2でPNGの保存が成功した直後をMixinで捕捉し、クリック可能なアップロード操作をチャットへ追加します。
 
 Plus利用者は`/ilovemoe auto-upload on`で、F2撮影後の自動アップロードを有効にできます。無料プランでは従来どおりチャットのボタンから手動でアップロードできます。
 
@@ -16,15 +16,17 @@ Plus利用者は`/ilovemoe auto-upload on`で、F2撮影後の自動アップロ
 
 | Minecraft | Java | Gradleモジュール | 成果物 |
 | --- | --- | --- | --- |
+| 1.20.1 | 17 | `:versions:mc1_20_1` | `i-love-moe-mc1.20.1-<version>.jar` |
+| 1.20.4 | 17 | `:versions:mc1_20_4` | `i-love-moe-mc1.20.4-<version>.jar` |
 | 1.21.11 | 21 | `:versions:mc1_21_11` | `i-love-moe-mc1.21.11-<version>.jar` |
 | 26.1.2 | 25 | `:versions:mc26_1_2` | `i-love-moe-mc26.1.2-<version>.jar` |
 | 26.2 | 25 | `:versions:mc26_2` | `i-love-moe-mc26.2-<version>.jar` |
 
-HTTP通信、端末認証、設定保存、メタデータのエンコードは`common`に置いています。Minecraft APIへ触れるコードは`versions`配下に分離しています。26系で共通のコードは`versions/mc26`、スクリーンショットMixinとHUD差分は各バージョンのモジュールにあります。
+HTTP通信、端末認証、設定保存、メタデータのエンコードは`common`に置いています。Minecraft APIへ触れるコードは`versions`配下に分離しています。Yarn系で共通のコードは`versions/mc1_yarn`、1.20系の差分は`versions/mc1_20`、26系で共通のコードは`versions/mc26`にあります。
 
 ## 開発
 
-3バージョンをまとめてビルドします。
+5バージョンをまとめてビルドします。
 
 ```powershell
 .\gradlew.bat build
@@ -33,6 +35,8 @@ HTTP通信、端末認証、設定保存、メタデータのエンコードは`
 個別にビルドする場合は、対象モジュールを指定します。
 
 ```powershell
+.\gradlew.bat :versions:mc1_20_1:build
+.\gradlew.bat :versions:mc1_20_4:build
 .\gradlew.bat :versions:mc1_21_11:build
 .\gradlew.bat :versions:mc26_1_2:build
 .\gradlew.bat :versions:mc26_2:build
@@ -54,7 +58,7 @@ JARは各モジュールの`build/libs`に生成されます。Java 25がロー�
 
 ## Modrinthへの公開
 
-Minotaurで3バージョンをまとめて公開できます。ModrinthのProject IDまたはslugは
+Minotaurで5バージョンをまとめて公開できます。ModrinthのProject IDまたはslugは
 `MODRINTH_PROJECT_ID`、APIトークンは`MODRINTH_TOKEN`、リリースノートは
 `CHANGELOG`へ設定します。先にModrinth上でプロジェクトを作成してください。
 Project IDを省略した場合は`i-love-moe`を使います。
@@ -74,3 +78,28 @@ $env:CHANGELOG = "Release notes"
 GitHub Actionsは手動実行または`v*`タグのpushで同じタスクを実行します。Repository
 Secretに`MODRINTH_TOKEN`を登録し、slugが`i-love-moe`でない場合だけRepository
 Variableの`MODRINTH_PROJECT_ID`も設定してください。
+
+## CurseForgeへの公開
+
+CurseForgeGradleでProject ID `1624436`へ5バージョンをまとめて公開できます。
+CurseForge Authorsで発行したアップロード用トークンを`CURSEFORGE_TOKEN`、リリース
+ノートを`CHANGELOG`へ設定します。
+
+```powershell
+$env:CURSEFORGE_TOKEN = "..."
+$env:CHANGELOG = "Release notes"
+.\gradlew.bat curseforge --no-daemon
+```
+
+各ファイルにはMinecraftバージョン、Fabric、Client環境、Javaバージョン、
+Fabric APIの必須依存関係が設定されます。別のProject IDで確認する場合だけ
+`CURSEFORGE_PROJECT_ID`で上書きできます。
+
+1バージョンだけ公開する場合は、たとえば
+`.\gradlew.bat :versions:mc1_20_1:curseforge --no-daemon`を実行します。同じ
+`mod_version`とMinecraftバージョンの組み合わせを重複して公開しないよう、
+公開前に`gradle.properties`の`mod_version`を更新してください。
+
+GitHub Actionsは手動実行または`v*`タグのpushで全バージョンを公開します。
+Repository Secretに`CURSEFORGE_TOKEN`を登録してください。プロジェクトや
+各ファイルが審査中の場合、アップロード後も承認されるまでは一般公開されません。

@@ -12,6 +12,8 @@ plugins {
 rootProject.name = "i-love-moe-minecraft"
 
 include(":common")
+include(":versions:mc1_20_1")
+include(":versions:mc1_20_4")
 include(":versions:mc1_21_11")
 include(":versions:mc26_1_2")
 include(":versions:mc26_2")
