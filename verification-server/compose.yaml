@@ -1,0 +1,23 @@
+services:
+  velocity:
+    build:
+      context: ..
+      dockerfile: verification-server/Dockerfile
+    restart: unless-stopped
+    environment:
+      I_LOVE_MOE_API_BASE_URL: ${I_LOVE_MOE_API_BASE_URL}
+      I_LOVE_MOE_VERIFICATION_TOKEN: ${I_LOVE_MOE_VERIFICATION_TOKEN}
+    ports:
+      - "25565:25565/tcp"
+    volumes:
+      - velocity-data:/velocity/logs
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 25565"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  velocity-data:

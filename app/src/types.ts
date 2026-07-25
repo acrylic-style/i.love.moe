@@ -33,6 +33,9 @@ export interface Env {
   AWS_SECRET_ACCESS_KEY: string;
   AWS_REGION: string;
   ABUSE_CONTACT_EMAIL: string;
+  MINECRAFT_VERIFICATION_TOKEN: string;
+  MINECRAFT_VERIFICATION_HOST: string;
+  WEB_REGISTRATION_ENABLED: string;
 }
 
 export interface RetentionMessage {
@@ -42,6 +45,7 @@ export interface RetentionMessage {
 export interface DeviceRow {
   id: string;
   user_id: string | null;
+  kind?: "mod" | "web";
 }
 
 export type Visibility = "unlisted" | "private" | "passphrase";

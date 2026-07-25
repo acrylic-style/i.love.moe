@@ -76,6 +76,10 @@ export default async function TermsPage() {
             ID表示は初期設定でONになり、管理画面からOFFにできます。
           </li>
           <li>
+            認証用Velocityサーバーがオンラインモードで確認したUUIDとMinecraft
+            IDだけを認証済みとして扱います。認証コードを第三者へ渡してはなりません。
+          </li>
+          <li>
             Minecraftのスクリーンショットには、他のプレイヤーの名前、スキン、チャット、サーバー情報などが含まれる場合があります。利用者は、関係者のプライバシー、各サーバーの規約、著作権その他の権利に配慮してください。
           </li>
           <li>
@@ -280,6 +284,10 @@ function EnglishTerms() {
             Minecraft UUIDs and Minecraft IDs sent by the Mod are self-reported and do not establish
             ownership of a Minecraft account. Minecraft ID display is enabled by default for each
             image and can be disabled from the management page.
+          </li>
+          <li>
+            Only UUIDs and Minecraft IDs confirmed by the online-mode Velocity verification server
+            are treated as verified. You must not share a verification code with another person.
           </li>
           <li>
             Minecraft screenshots may contain player names, skins, chat, and server information. You

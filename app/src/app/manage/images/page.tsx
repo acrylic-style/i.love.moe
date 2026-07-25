@@ -8,6 +8,7 @@ import { imageLibrary, parseLibraryFilters } from "@/library";
 import { planLimits } from "@/plans";
 import { authenticateSessionToken } from "@/service";
 import { getI18n } from "@/i18n/server";
+import { verifiedMinecraftProfiles } from "@/web-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +21,10 @@ export default async function ImagesPage({
   const session = await authenticateSessionToken((await cookies()).get("session")?.value, env);
   if (!session) notFound();
   const filters = parseLibraryFilters(await searchParams);
-  const [library, limits, { t }] = await Promise.all([
+  const [library, limits, profiles, { t }] = await Promise.all([
     imageLibrary(env, session.user_id, filters),
     planLimits(env, session.user_id),
+    verifiedMinecraftProfiles(env, session.user_id),
     getI18n(),
   ]);
   return (
@@ -37,7 +39,7 @@ export default async function ImagesPage({
           {t("common.backManage")}
         </a>
       </header>
-      <ImageUploadForm />
+      <ImageUploadForm minecraftProfiles={profiles} />
       <ImageLibrary
         images={library.images}
         tags={library.tags}

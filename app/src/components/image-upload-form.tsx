@@ -8,8 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useI18n } from "@/i18n/client";
+import type { VerifiedMinecraftProfile } from "@/web-auth";
 
-export function ImageUploadForm() {
+export function ImageUploadForm({
+  minecraftProfiles,
+}: {
+  minecraftProfiles: VerifiedMinecraftProfile[];
+}) {
   const { t } = useI18n();
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
@@ -124,6 +129,26 @@ export function ImageUploadForm() {
               />
             </div>
           </div>
+          {minecraftProfiles.length > 0 && (
+            <div className="max-w-sm space-y-2">
+              <Label htmlFor="upload-minecraft-profile">{t("upload.minecraftProfile")}</Label>
+              <select
+                id="upload-minecraft-profile"
+                name="minecraftProfileUuid"
+                defaultValue={minecraftProfiles[0]?.uuid ?? ""}
+                disabled={uploading}
+                className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+              >
+                <option value="">{t("upload.minecraftProfileNone")}</option>
+                {minecraftProfiles.map((profile) => (
+                  <option key={profile.uuid} value={profile.uuid}>
+                    {profile.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-sm text-muted-foreground">{t("upload.minecraftProfileHelp")}</p>
+            </div>
+          )}
           <p className="text-sm text-muted-foreground">{t("upload.moderationNotice")}</p>
           {errorCode && (
             <div className="space-y-1 text-sm text-destructive" role="alert">

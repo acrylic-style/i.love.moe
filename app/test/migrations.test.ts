@@ -94,6 +94,38 @@ describe("D1 migrations", () => {
     expect(
       database.prepare("SELECT minecraft_id_public FROM images WHERE id = ?").get("image-1"),
     ).toEqual({ minecraft_id_public: 1 });
+    database
+      .prepare(
+        `UPDATE user_minecraft_profiles SET status = 'verified', verified_at = ?
+          WHERE user_id = ? AND minecraft_uuid = ?`,
+      )
+      .run(3, "user-1", "123e4567-e89b-12d3-a456-426614174000");
+    database
+      .prepare("INSERT INTO users (id, email, created_at) VALUES (?, ?, ?)")
+      .run("user-2", "second@example.com", 1);
+    expect(() =>
+      database
+        .prepare(
+          `INSERT INTO user_minecraft_profiles
+            (user_id, minecraft_uuid, status, linked_at, last_seen_at, verified_at)
+            VALUES (?, ?, 'verified', ?, ?, ?)`,
+        )
+        .run("user-2", "123e4567-e89b-12d3-a456-426614174000", 3, 3, 3),
+    ).toThrow();
+    database
+      .prepare(
+        `INSERT INTO devices (id, token_hash, user_id, created_at, last_seen_at, kind)
+          VALUES (?, ?, ?, ?, ?, 'web')`,
+      )
+      .run("web-device-1", "web-token-hash", "user-1", 3, 3);
+    expect(() =>
+      database
+        .prepare(
+          `INSERT INTO devices (id, token_hash, user_id, created_at, last_seen_at, kind)
+            VALUES (?, ?, ?, ?, ?, 'web')`,
+        )
+        .run("web-device-2", "web-token-hash-2", "user-1", 3, 3),
+    ).toThrow();
     expect(
       database
         .prepare(

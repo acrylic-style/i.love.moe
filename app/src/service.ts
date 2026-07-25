@@ -170,7 +170,20 @@ export async function uploadManagedImage(request: Request, env: CloudflareEnv): 
   const title = normalizeOptionalText(form.get("title"), 100);
   const serverAddress = normalizeOptionalText(form.get("serverAddress"), 255);
   const serverName = normalizeOptionalText(form.get("serverName"), 100);
-  if (title === undefined || serverAddress === undefined || serverName === undefined) {
+  const minecraftUuidValue = form.get("minecraftProfileUuid");
+  const minecraftUuid =
+    typeof minecraftUuidValue === "string" && minecraftUuidValue.trim()
+      ? minecraftUuidValue.trim().toLowerCase()
+      : null;
+  if (
+    title === undefined ||
+    serverAddress === undefined ||
+    serverName === undefined ||
+    (minecraftUuid &&
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+        minecraftUuid,
+      ))
+  ) {
     return apiError("invalid_upload_metadata", 400);
   }
   const parsedServerAddress = serverAddress ? parseServerAddress(serverAddress) : null;
@@ -179,11 +192,23 @@ export async function uploadManagedImage(request: Request, env: CloudflareEnv): 
   }
 
   const device = await env.DB.prepare(
-    "SELECT id, user_id FROM devices WHERE user_id = ? ORDER BY last_seen_at DESC LIMIT 1",
+    `SELECT id, user_id FROM devices WHERE user_id = ?
+      ORDER BY CASE WHEN kind = 'web' THEN 0 ELSE 1 END, last_seen_at DESC LIMIT 1`,
   )
     .bind(session.user_id)
     .first<DeviceRow>();
   if (!device) return apiError("device_not_found", 404);
+  const minecraftProfile = minecraftUuid
+    ? await env.DB.prepare(
+        `SELECT p.uuid, p.current_name AS name
+          FROM user_minecraft_profiles ump
+          JOIN minecraft_profiles p ON p.uuid = ump.minecraft_uuid
+          WHERE ump.user_id = ? AND ump.minecraft_uuid = ? AND ump.status = 'verified'`,
+      )
+        .bind(session.user_id, minecraftUuid)
+        .first<MinecraftProfileMetadata>()
+    : null;
+  if (minecraftUuid && !minecraftProfile) return apiError("invalid_minecraft_profile", 400);
 
   const body = new Uint8Array(await image.arrayBuffer());
   const png = inspectPng(body);
@@ -202,7 +227,7 @@ export async function uploadManagedImage(request: Request, env: CloudflareEnv): 
     uploadSource: "web",
     automatic: false,
     actorKey: `user:${session.user_id}`,
-    minecraftProfile: null,
+    minecraftProfile,
   });
 }
 
@@ -1212,10 +1237,11 @@ async function findBrowserLoginChallenge(
     .first<BrowserLoginChallengeRow>();
 }
 
-async function verifyTurnstile(
+export async function verifyTurnstile(
   request: Request,
   env: CloudflareEnv,
   token: string,
+  expectedAction = "minecraft_login",
 ): Promise<boolean> {
   if (!env.TURNSTILE_SECRET_KEY || !token || token.length > 2048) return false;
   const body = new URLSearchParams({
@@ -1247,7 +1273,7 @@ async function verifyTurnstile(
     }
     return (
       result.success === true &&
-      result.action === "minecraft_login" &&
+      result.action === expectedAction &&
       typeof result.hostname === "string" &&
       allowedHostnames.has(result.hostname)
     );

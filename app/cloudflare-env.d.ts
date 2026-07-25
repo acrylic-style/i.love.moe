@@ -27,6 +27,9 @@ declare global {
     AWS_REGION: string;
     ABUSE_CONTACT_EMAIL: string;
     WEBHOOK_ENCRYPTION_KEY: string;
+    MINECRAFT_VERIFICATION_TOKEN: string;
+    MINECRAFT_VERIFICATION_HOST: string;
+    WEB_REGISTRATION_ENABLED: string;
   }
 }
 

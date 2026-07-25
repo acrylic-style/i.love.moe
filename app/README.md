@@ -18,6 +18,8 @@ Next.js App Routerを`@opennextjs/cloudflare`でCloudflare Workersへ配置す�
 6. Amazon Rekognitionの`DetectModerationLabels`だけを許可したIAMユーザーを作り、認証情報をSecretへ登録する。リージョンは既定で東京（`ap-northeast-1`）。
    - 本番: `npm exec wrangler secret put AWS_ACCESS_KEY_ID`
    - 本番: `npm exec wrangler secret put AWS_SECRET_ACCESS_KEY`
+   - Minecraft ID認証: `npm exec wrangler secret put MINECRAFT_VERIFICATION_TOKEN`
+     （Velocity側の`I_LOVE_MOE_VERIFICATION_TOKEN`と同じ値）
 7. D1へマイグレーションを適用する。
    - ローカル: `npm run d1:migrate:local`
    - リモート: `npm run d1:migrate:remote`
@@ -94,6 +96,9 @@ Plusのサーバーブランディングでは、アイコン、バナー、ペ�
 - `POST /api/v1/images`: Bearerトークン付きでPNGをアップロード。Modは任意で撮影サーバー名・アドレスをBase64URLヘッダーへ添付
   - レスポンスの`url`はWeb用の正規URL、`minecraftUrl`はMinecraftのチャット表示・コピー用URL
 - `POST /manage/images/upload`: ログイン済みWeb画面からPNG、任意のタイトル・サーバー情報をアップロード
+- `POST /api/internal/minecraft-verification-codes`: 認証用Velocityから短命コードとオンラインモードで確認したUUID・IDを登録
+- `POST /auth/web-register`: Minecraft認証コードとメールアドレスでWeb新規登録を開始
+- `POST /auth/web-login`: 既存Webアカウントへメールログインリンクを送信
 - `GET /api/v1/images`: 所有画像の一覧
 - `POST /api/v1/images/{id}/publish`: 端末が所有する画像を一般公開へ変更。無料プランでも利用可能
 - `POST /api/v1/images/{id}/rename`: 端末が所有する画像のタイトルを変更
@@ -108,7 +113,9 @@ Plusのサーバーブランディングでは、アイコン、バナー、ペ�
 - `POST /api/billing/portal`: Stripe Customer Portalを開始
 - `POST /api/stripe/webhook`: Stripe署名付きWebhookを処理
 
-ログイン後の `/manage` では、画像タイトルと撮影サーバー情報の確認、アルバムの作成・編集・並べ替え・削除ができます。画像とアルバムはURL限定公開、非公開、合言葉付き公開から選べます。合言葉の閲覧許可はHttpOnly Cookieで24時間保持され、設定変更時に無効になります。アルバムは1会員20冊、1冊50枚までです。撮影サーバー情報は画像・アルバムの共有ページにも表示されます。
+Modなしの新規登録では、`verify.moe.pictures` のオンラインモードVelocityへ接続し、切断画面に表示されたコードとメールアドレスを `/register` へ入力します。`WEB_REGISTRATION_ENABLED=true` の場合だけ受け付けます。VelocityのDocker Compose構成は `../verification-server` にあります。
+
+ログイン後の `/manage` では、認証済みMinecraft IDの追加、画像タイトルと撮影サーバー情報の確認、アルバムの作成・編集・並べ替え・削除ができます。Webアップロードでは本人の認証済みIDを任意で画像へ紐付けられます。画像とアルバムはURL限定公開、非公開、合言葉付き公開から選べます。合言葉の閲覧許可はHttpOnly Cookieで24時間保持され、設定変更時に無効になります。アルバムは1会員20冊、1冊50枚までです。撮影サーバー情報は画像・アルバムの共有ページにも表示されます。
 
 すべての新規画像は、Cloudflare Imagesで最大1280pxのJPEGへ変換した検査用コピーをAmazon Rekognitionへ送信し、原本をR2へ保存する前に禁止コンテンツを確認します。拒否された画像や判定障害時の画像は保存しません。既存画像は遡って検査しません。アップロード試行はIPと利用者・端末の各単位でローリング1時間60回までです。公開画像の通報先は`wrangler.jsonc`の`ABUSE_CONTACT_EMAIL`で設定します。
 

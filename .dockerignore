@@ -1,0 +1,8 @@
+.git
+.github
+app/.next
+app/.open-next
+app/node_modules
+minecraft/.gradle
+minecraft/**/build
+verification-server/.env

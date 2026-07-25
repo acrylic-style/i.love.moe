@@ -9,6 +9,8 @@ const CURSEFORGE_URL = "https://www.curseforge.com/minecraft/mc-mods/i-moe";
 
 interface SiteHeaderProps {
   publicBaseUrl: string;
+  signedIn: boolean;
+  registrationEnabled: boolean;
   customServer?: {
     name: string;
     href: string;
@@ -16,11 +18,18 @@ interface SiteHeaderProps {
   };
 }
 
-export function SiteHeader({ publicBaseUrl, customServer }: SiteHeaderProps) {
+export function SiteHeader({
+  publicBaseUrl,
+  customServer,
+  signedIn,
+  registrationEnabled,
+}: SiteHeaderProps) {
   const { t } = useI18n();
   const homeUrl = new URL("/", publicBaseUrl).toString();
   const guideUrl = new URL("/guide", publicBaseUrl).toString();
   const plusUrl = new URL("/plus", publicBaseUrl).toString();
+  const loginUrl = new URL(signedIn ? "/manage" : "/login", publicBaseUrl).toString();
+  const registerUrl = new URL("/register", publicBaseUrl).toString();
   return (
     <header className="mx-auto w-full max-w-6xl border-b pb-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -65,6 +74,14 @@ export function SiteHeader({ publicBaseUrl, customServer }: SiteHeaderProps) {
           </a>
           <a className={buttonVariants({ variant: "outline", size: "sm" })} href={plusUrl}>
             Plus
+          </a>
+          {!signedIn && registrationEnabled && (
+            <a className={buttonVariants({ variant: "ghost", size: "sm" })} href={registerUrl}>
+              {t("header.register")}
+            </a>
+          )}
+          <a className={buttonVariants({ variant: "outline", size: "sm" })} href={loginUrl}>
+            {signedIn ? t("manage.title") : t("header.login")}
           </a>
           <a
             className={buttonVariants({ size: "sm" })}

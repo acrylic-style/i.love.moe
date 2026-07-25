@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { getEnv } from "@/cloudflare";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { resolveCustomDomain } from "@/custom-domains";
 import { I18nProvider } from "@/i18n/client";
 import { getI18n } from "@/i18n/server";
+import { authenticateSessionToken } from "@/service";
+import { webRegistrationEnabled } from "@/web-auth";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -22,7 +24,10 @@ export const dynamic = "force-dynamic";
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   const env = getEnv();
   const legalNoticeUrl = validLegalNoticeUrl(process.env.LEGAL_NOTICE_URL);
-  const { locale, preference } = await getI18n();
+  const [{ locale, preference }, session] = await Promise.all([
+    getI18n(),
+    authenticateSessionToken((await cookies()).get("session")?.value, env),
+  ]);
   const requestHostname = hostnameFromHostHeader((await headers()).get("host"));
   const officialHostnames = new Set([
     new URL(env.PUBLIC_BASE_URL).hostname.toLowerCase(),
@@ -50,7 +55,12 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body className="min-h-screen px-3 py-6 antialiased sm:px-6 sm:py-10">
         <I18nProvider locale={locale} preference={preference}>
           <div className="flex min-h-[calc(100vh-3rem)] flex-col sm:min-h-[calc(100vh-5rem)]">
-            <SiteHeader publicBaseUrl={env.PUBLIC_BASE_URL} customServer={customServer} />
+            <SiteHeader
+              publicBaseUrl={env.PUBLIC_BASE_URL}
+              customServer={customServer}
+              signedIn={Boolean(session)}
+              registrationEnabled={webRegistrationEnabled(env)}
+            />
             <div className="flex-1 pt-6 sm:pt-10">{children}</div>
             <SiteFooter legalNoticeUrl={legalNoticeUrl} />
           </div>

@@ -38,7 +38,12 @@ export default async function PrivacyPage() {
           <li>
             <span className="text-foreground">Minecraftプロフィール情報：</span>
             Modから画像と一緒に送信されたMinecraft UUID、Minecraft
-            ID、送信元端末、初回・最終確認日時、画像ごとの表示設定
+            ID、送信元端末、認証用Velocityサーバーで確認したUUID・Minecraft
+            ID・認証日時、認証コードのハッシュと有効期限、画像ごとの表示設定
+          </li>
+          <li>
+            <span className="text-foreground">認証サーバー接続情報：</span>
+            接続日時、接続元IPアドレスその他VelocityおよびVPSの安全な運用に必要なログ
           </li>
           <li>
             <span className="text-foreground">保護設定：</span>
@@ -237,7 +242,14 @@ function EnglishPrivacy() {
           <li>
             <span className="text-foreground">Minecraft profile information: </span>
             Minecraft UUIDs and Minecraft IDs sent by the Mod with images, source devices, first-
-            and last-seen times, and per-image display settings.
+            and last-seen times; UUIDs, Minecraft IDs, and verification times confirmed by the
+            Velocity verification server; hashes and expiration times of verification codes; and
+            per-image display settings.
+          </li>
+          <li>
+            <span className="text-foreground">Verification server connection information: </span>
+            Connection times, source IP addresses, and other logs required for secure operation of
+            Velocity and the VPS.
           </li>
           <li>
             <span className="text-foreground">Protection settings: </span>

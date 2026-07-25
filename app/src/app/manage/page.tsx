@@ -15,13 +15,16 @@ import { authenticateSessionToken, managedImages } from "@/service";
 import { planLimits, subscriptionPriceLabel, subscriptionSummary, uploadUsage } from "@/plans";
 import { LocalDateTime } from "@/components/local-date-time";
 import { getI18n } from "@/i18n/server";
+import { verifiedMinecraftProfiles } from "@/web-auth";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export const dynamic = "force-dynamic";
 
 export default async function ManagePage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; checkout?: string }>;
+  searchParams: Promise<{ error?: string; checkout?: string; status?: string }>;
 }) {
   const { locale, t } = await getI18n();
   const token = (await cookies()).get("session")?.value;
@@ -33,28 +36,38 @@ export default async function ManagePage({
         <Card>
           <CardHeader>
             <CardTitle>{t("auth.required")}</CardTitle>
-            <CardDescription>{t("auth.fromMod")}</CardDescription>
+            <CardDescription>{t("auth.fromWeb")}</CardDescription>
           </CardHeader>
+          <CardContent className="flex gap-3">
+            <a className={buttonVariants()} href="/login">
+              {t("header.login")}
+            </a>
+            <a className={buttonVariants({ variant: "outline" })} href="/register">
+              {t("header.register")}
+            </a>
+          </CardContent>
         </Card>
       </main>
     );
   }
-  const [images, albums, subscription, limits, usage, migration] = await Promise.all([
-    managedImages(env, session.user_id, 6),
-    managedAlbums(env, session.user_id),
-    subscriptionSummary(env, session.user_id),
-    planLimits(env, session.user_id),
-    uploadUsage(env, session.user_id),
-    env.DB.prepare(
-      `SELECT
+  const [images, albums, subscription, limits, usage, migration, minecraftProfiles] =
+    await Promise.all([
+      managedImages(env, session.user_id, 6),
+      managedAlbums(env, session.user_id),
+      subscriptionSummary(env, session.user_id),
+      planLimits(env, session.user_id),
+      uploadUsage(env, session.user_id),
+      env.DB.prepare(
+        `SELECT
         SUM(CASE WHEN status IN ('pending', 'processing') THEN 1 ELSE 0 END) AS pending,
         SUM(CASE WHEN status = 'failed' AND attempts >= 5 THEN 1 ELSE 0 END) AS failed
       FROM retention_jobs WHERE user_id = ?`,
-    )
-      .bind(session.user_id)
-      .first<{ pending: number | null; failed: number | null }>(),
-  ]);
-  const { error, checkout } = await searchParams;
+      )
+        .bind(session.user_id)
+        .first<{ pending: number | null; failed: number | null }>(),
+      verifiedMinecraftProfiles(env, session.user_id),
+    ]);
+  const { error, checkout, status } = await searchParams;
   const priceLabel = subscriptionPriceLabel(subscription, locale);
   const visibilityLabel = (
     visibility: "unlisted" | "private" | "passphrase",
@@ -84,6 +97,21 @@ export default async function ManagePage({
       {checkout === "success" && subscription.plan !== "plus" && (
         <p className="rounded-md border border-primary/40 bg-primary/10 px-4 py-3 text-sm">
           {t("manage.checkoutPending")}
+        </p>
+      )}
+      {status === "profile_linked_success" && (
+        <p className="rounded-md border border-primary/40 bg-primary/10 px-4 py-3 text-sm">
+          {t("webAuth.profileLinked")}
+        </p>
+      )}
+      {status === "profile_linked" && (
+        <p className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {t("webAuth.profileAlreadyLinked")}
+        </p>
+      )}
+      {status === "invalid_code" && (
+        <p className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {t("webAuth.invalidCode")}
         </p>
       )}
 
@@ -135,6 +163,45 @@ export default async function ManagePage({
               {t("manage.migrationFailed", { count: migration?.failed ?? 0 })}
             </p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("webAuth.profilesTitle")}</CardTitle>
+          <CardDescription>{t("webAuth.profilesDescription")}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {minecraftProfiles.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("webAuth.noProfiles")}</p>
+          ) : (
+            <ul className="space-y-2">
+              {minecraftProfiles.map((profile) => (
+                <li className="rounded-md border px-4 py-3" key={profile.uuid}>
+                  <p className="font-medium">{profile.name}</p>
+                  <p className="font-mono text-xs text-muted-foreground">{profile.uuid}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+          <form action="/manage/minecraft-profiles" method="post" className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {t("webAuth.addProfileHelp", { host: env.MINECRAFT_VERIFICATION_HOST })}
+            </p>
+            <div className="max-w-sm space-y-2">
+              <Label htmlFor="minecraft-verification-code">{t("webAuth.code")}</Label>
+              <Input
+                id="minecraft-verification-code"
+                name="code"
+                placeholder="ABCD-EFGH"
+                maxLength={12}
+                required
+              />
+            </div>
+            <Button type="submit" variant="outline">
+              {t("webAuth.addProfile")}
+            </Button>
+          </form>
         </CardContent>
       </Card>
 

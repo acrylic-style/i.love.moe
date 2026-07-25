@@ -7,6 +7,7 @@ app/coverage/
 app/.dev.vars
 app/.env
 app/.env.*
+verification-server/.env
 !app/.dev.vars.example
 minecraft/.gradle/
 minecraft/build/
