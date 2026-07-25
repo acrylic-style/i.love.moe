@@ -4,10 +4,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getI18n } from "@/i18n/server";
 
-//const MODRINTH_URL = "https://modrinth.com/mod/i-love-moe";
-
-// Modrinth is still under review
-const MODRINTH_URL = "https://github.com/acrylic-style/i.love.moe/releases";
+const CURSEFORGE_URL = "https://www.curseforge.com/minecraft/mc-mods/i-moe";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
@@ -84,7 +81,7 @@ export default async function GuidePage() {
       <div className="flex flex-wrap gap-3">
         <a
           className={buttonVariants({ size: "lg" })}
-          href={MODRINTH_URL}
+          href={CURSEFORGE_URL}
           target="_blank"
           rel="noreferrer"
         >

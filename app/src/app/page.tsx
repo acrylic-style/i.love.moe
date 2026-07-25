@@ -31,7 +31,7 @@ export default async function HomePage() {
           <span>{t("home.beta")}</span>
           <a
             className={buttonVariants({ variant: "outline" })}
-            href="https://github.com/acrylic-style/i.love.moe/releases"
+            href="https://www.curseforge.com/minecraft/mc-mods/i-moe"
             target="_blank"
             rel="noreferrer"
           >

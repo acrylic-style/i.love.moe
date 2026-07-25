@@ -5,10 +5,7 @@ import { Download } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { useI18n } from "@/i18n/client";
 
-//const MODRINTH_URL = "https://modrinth.com/mod/i-love-moe";
-
-// Modrinth is still under review
-const MODRINTH_URL = "https://github.com/acrylic-style/i.love.moe/releases";
+const CURSEFORGE_URL = "https://www.curseforge.com/minecraft/mc-mods/i-moe";
 
 interface SiteHeaderProps {
   publicBaseUrl: string;
@@ -71,7 +68,7 @@ export function SiteHeader({ publicBaseUrl, customServer }: SiteHeaderProps) {
           </a>
           <a
             className={buttonVariants({ size: "sm" })}
-            href={MODRINTH_URL}
+            href={CURSEFORGE_URL}
             target="_blank"
             rel="noreferrer"
           >
