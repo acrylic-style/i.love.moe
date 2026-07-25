@@ -86,16 +86,16 @@ const en: Record<string, string> = {
   "guide.eyebrow": "Getting started",
   "guide.title": "Upload a Minecraft screenshot",
   "guide.description":
-    "Install the client-side Fabric Mod, take a screenshot, and share it from Minecraft.",
-  "guide.modRequiredTitle": "The Mod is required for uploads",
+    "Register to upload from the website, or install the client-side Fabric Mod to share screenshots directly from Minecraft.",
+  "guide.modRequiredTitle": "Registration or the Mod is required",
   "guide.modRequiredDescription":
-    "To upload screenshots directly from Minecraft, install the i.らぶ.moe Fabric Mod on your Minecraft client. Nothing needs to be installed on the Minecraft server.",
-  "guide.requirementsTitle": "Before you start",
+    "Register an account to upload from the dashboard. To upload directly from Minecraft, install the i.らぶ.moe Fabric Mod on your client. Nothing needs to be installed on the Minecraft server.",
+  "guide.requirementsTitle": "When using the Mod",
   "guide.requirementFabric": "Install Fabric Loader and Fabric API.",
   "guide.requirementVersions": "Choose the Mod file that matches your Minecraft version.",
   "guide.requirementReview":
     "Screenshots may contain chat or player names. Review the image before uploading it.",
-  "guide.stepsTitle": "Upload steps",
+  "guide.stepsTitle": "Uploading with the Mod",
   "guide.step1Title": "1. Download and install",
   "guide.step1Description":
     "Download the Mod from CurseForge and place the JAR, together with Fabric API, in your mods folder.",
@@ -513,16 +513,16 @@ const ja: Record<string, string> = {
   "guide.eyebrow": "はじめに",
   "guide.title": "Minecraftのスクリーンショットをアップロード",
   "guide.description":
-    "クライアント側のFabric Modを導入し、Minecraftからスクリーンショットを共有します。",
-  "guide.modRequiredTitle": "アップロードにはModの導入が必要です",
+    "Webで登録してアップロードするか、クライアント側のFabric ModからMinecraftのスクリーンショットを直接共有できます。",
+  "guide.modRequiredTitle": "アップロードには登録もしくはModの導入が必要です",
   "guide.modRequiredDescription":
-    "Minecraftからスクリーンショットを直接アップロードするには、Minecraftクライアントへi.らぶ.moe Fabric Modを導入してください。Minecraftサーバー側への導入は必要ありません。",
-  "guide.requirementsTitle": "用意するもの",
+    "ダッシュボードからアップロードする場合はアカウントを登録してください。Minecraftから直接アップロードする場合は、Minecraftクライアントへi.らぶ.moe Fabric Modを導入します。Minecraftサーバー側への導入は必要ありません。",
+  "guide.requirementsTitle": "Modを使う場合に用意するもの",
   "guide.requirementFabric": "Fabric LoaderとFabric APIを導入します。",
   "guide.requirementVersions": "Minecraftのバージョンに合うModファイルを選びます。",
   "guide.requirementReview":
     "画像にはチャットやプレイヤー名が含まれる場合があります。アップロード前に内容を確認してください。",
-  "guide.stepsTitle": "アップロード手順",
+  "guide.stepsTitle": "Modを使ったアップロード手順",
   "guide.step1Title": "1. ダウンロードして導入",
   "guide.step1Description":
     "CurseForgeからModをダウンロードし、Fabric APIと一緒にmodsフォルダへJARを入れます。",
