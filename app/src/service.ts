@@ -813,6 +813,7 @@ export async function finalizeManagedImageUpload(
   const form = await request.formData();
   const title = normalizeOptionalText(form.get("title"), 100);
   const description = normalizeOptionalText(form.get("description"), 1000);
+  const serverAddress = normalizeOptionalText(form.get("serverAddress"), 255);
   const share = parseShareMode(form.get("visibility"));
   const passphrase = form.get("passphrase");
   const minecraftUuidValue = form.get("minecraftProfileUuid");
@@ -823,6 +824,7 @@ export async function finalizeManagedImageUpload(
   if (
     title === undefined ||
     description === undefined ||
+    serverAddress === undefined ||
     !share ||
     (minecraftUuid &&
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
@@ -830,6 +832,10 @@ export async function finalizeManagedImageUpload(
       ))
   ) {
     return apiError("invalid_upload_metadata", 400);
+  }
+  const parsedServerAddress = serverAddress ? parseServerAddress(serverAddress) : null;
+  if (serverAddress && !parsedServerAddress) {
+    return apiError("invalid_server_metadata", 400);
   }
 
   const current = await env.DB.prepare(
@@ -868,6 +874,7 @@ export async function finalizeManagedImageUpload(
       title = ?, description = ?, visibility = ?, discoverability = ?,
       passphrase_salt = ?, passphrase_hash = ?, passphrase_iterations = ?,
       minecraft_uuid = ?, minecraft_name = ?, minecraft_id_public = 1,
+      server_address = ?, server_host_ascii = ?, server_port = ?, server_id = NULL,
       access_version = access_version + 1
     WHERE id = ? AND owner_user_id = ? AND deleted_at IS NULL AND expires_at > ?`,
   )
@@ -881,6 +888,9 @@ export async function finalizeManagedImageUpload(
       passphraseRecord?.passphrase_iterations ?? null,
       minecraftProfile?.uuid ?? null,
       minecraftProfile?.name ?? null,
+      serverAddress,
+      parsedServerAddress?.hostAscii ?? null,
+      parsedServerAddress?.port ?? null,
       id,
       session.user_id,
       Date.now(),

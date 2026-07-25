@@ -172,11 +172,13 @@ export function DashboardImageUploader({
   const saveErrorKey =
     saveError === "invalid_passphrase"
       ? "image.invalidPassphrase"
-      : saveError === "plus_required"
-        ? "image.protectedPlusOnly"
-        : saveError === "invalid_minecraft_profile"
-          ? "dashboardUpload.invalidMinecraftProfile"
-          : "dashboardUpload.saveError";
+      : saveError === "invalid_server_metadata"
+        ? "upload.error.invalid_server_metadata"
+        : saveError === "plus_required"
+          ? "image.protectedPlusOnly"
+          : saveError === "invalid_minecraft_profile"
+            ? "dashboardUpload.invalidMinecraftProfile"
+            : "dashboardUpload.saveError";
 
   return (
     <>
@@ -305,6 +307,16 @@ export function DashboardImageUploader({
                   maxLength={100}
                   defaultValue={uploadedImage.suggestedTitle}
                   autoFocus
+                  disabled={saving}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dashboard-upload-server-address">{t("upload.serverAddress")}</Label>
+                <Input
+                  id="dashboard-upload-server-address"
+                  name="serverAddress"
+                  maxLength={255}
+                  placeholder="play.example.com"
                   disabled={saving}
                 />
               </div>
