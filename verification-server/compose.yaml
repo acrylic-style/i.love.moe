@@ -1,5 +1,6 @@
 services:
   velocity:
+    image: ${I_LOVE_MOE_VERIFICATION_IMAGE:-ghcr.io/acrylic-style/i.love.moe-verification:latest}
     build:
       context: ..
       dockerfile: verification-server/Dockerfile
