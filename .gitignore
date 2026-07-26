@@ -13,6 +13,7 @@ minecraft/.gradle/
 minecraft/build/
 minecraft/**/build/
 minecraft/bin/
+minecraft/**/bin/
 minecraft/run/
 *.log
 *.tsbuildinfo
