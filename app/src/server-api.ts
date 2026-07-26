@@ -1,4 +1,5 @@
 import { randomToken, sha256 } from "./crypto";
+import { planLimits } from "./plans";
 import { acceptsFormOrigin, authenticateSession, normalizeOptionalText } from "./service";
 
 const MAX_ACTIVE_TOKENS = 10;
@@ -49,6 +50,9 @@ export async function createServerApiToken(
   const session = await authenticateSession(request, env);
   if (!session || !(await ownsServer(env, serverId, session.user_id))) {
     return json({ error: "not_found" }, 404);
+  }
+  if (!(await serverOwnerHasPlus(env, serverId))) {
+    return json({ error: "plus_required" }, 403);
   }
   const form = await request.formData();
   const name = normalizeOptionalText(form.get("name"), 100);
@@ -308,6 +312,7 @@ async function authenticateServerApiToken(
     .bind(await sha256(token))
     .first<{ id: string; server_id: string }>();
   if (!row) return null;
+  if (!(await serverOwnerHasPlus(env, row.server_id))) return null;
   await env.DB.prepare("UPDATE server_api_tokens SET last_used_at = ? WHERE id = ?")
     .bind(Date.now(), row.id)
     .run();
@@ -321,6 +326,15 @@ async function ownsServer(env: CloudflareEnv, serverId: string, userId: string):
     .bind(serverId, userId)
     .first<{ found: number }>();
   return Boolean(row);
+}
+
+async function serverOwnerHasPlus(env: CloudflareEnv, serverId: string): Promise<boolean> {
+  const server = await env.DB.prepare("SELECT owner_user_id FROM servers WHERE id = ?")
+    .bind(serverId)
+    .first<{ owner_user_id: string | null }>();
+  return server?.owner_user_id
+    ? (await planLimits(env, server.owner_user_id)).name === "plus"
+    : false;
 }
 
 function pageSize(value: string | null): number {

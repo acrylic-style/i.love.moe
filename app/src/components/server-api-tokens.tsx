@@ -13,10 +13,12 @@ export function ServerApiTokens({
   serverId,
   tokens,
   locale,
+  plus,
 }: {
   serverId: string;
   tokens: ManagedServerApiToken[];
   locale: "ja" | "en";
+  plus: boolean;
 }) {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
@@ -30,6 +32,10 @@ export function ServerApiTokens({
         title: "読み取り専用APIトークン",
         description:
           "このサーバーで一般公開されている画像・アルバムをAPIから取得できます。編集操作には利用できません。",
+        plusRequired:
+          "APIトークンの発行と利用にはPlusが必要です。既存のトークンはPlusへ再加入するまで利用できません。",
+        startPlus: "Plusを始める",
+        inactive: "Plus未加入のため無効",
         name: "トークン名",
         placeholder: "Webサイト連携",
         create: "トークンを発行",
@@ -54,6 +60,10 @@ export function ServerApiTokens({
         title: "Read-only API tokens",
         description:
           "Use these tokens to retrieve publicly listed images and albums for this server. Editing is not supported.",
+        plusRequired:
+          "Plus is required to create and use API tokens. Existing tokens remain inactive until you subscribe to Plus again.",
+        startPlus: "Start Plus",
+        inactive: "Inactive without Plus",
         name: "Token name",
         placeholder: "Website integration",
         create: "Create token",
@@ -149,6 +159,15 @@ export function ServerApiTokens({
         <p className="font-mono text-xs text-muted-foreground">{copy.endpoints}</p>
       </div>
 
+      {!plus && (
+        <div className="flex flex-col gap-3 rounded-lg border border-amber-500/40 bg-background p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm">{copy.plusRequired}</p>
+          <Button asChild variant="outline" className="shrink-0">
+            <a href="/plus">{copy.startPlus}</a>
+          </Button>
+        </div>
+      )}
+
       {secret && (
         <div className="space-y-3 rounded-lg border border-primary/40 bg-primary/10 p-4">
           <div>
@@ -171,7 +190,7 @@ export function ServerApiTokens({
         </div>
       )}
 
-      {tokens.length < 10 && (
+      {plus && tokens.length < 10 && (
         <form className="flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={createToken}>
           <div className="min-w-0 flex-1 space-y-2">
             <Label htmlFor={`server-api-token-name-${serverId}`}>{copy.name}</Label>
@@ -209,7 +228,14 @@ export function ServerApiTokens({
                 className="flex flex-col justify-between gap-3 rounded-lg border bg-background/70 p-4 sm:flex-row sm:items-center"
               >
                 <div className="min-w-0">
-                  <p className="font-medium">{token.name}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium">{token.name}</p>
+                    {!plus && (
+                      <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+                        {copy.inactive}
+                      </span>
+                    )}
+                  </div>
                   <p className="font-mono text-xs text-muted-foreground">
                     {token.token_prefix}••••••••
                   </p>

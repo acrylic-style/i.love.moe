@@ -561,7 +561,7 @@ export default async function ManageServerPage({
             )}
           </section>
           {detail.role === "owner" && (
-            <ServerApiTokens serverId={id} tokens={serverApiTokens} locale={locale} />
+            <ServerApiTokens serverId={id} tokens={serverApiTokens} locale={locale} plus={plus} />
           )}
           {detail.role === "owner" && (
             <section className="space-y-4">
