@@ -159,7 +159,7 @@ export default async function PrivacyPage() {
       <LegalSection title="7. 保存期間と削除">
         <LegalList>
           <li>
-            画像ファイルは、原則としてアップロード時に表示された期限まで保存します。本ポリシー制定時点では無料プランが30日、Plusプランが365日です。
+            画像ファイルは、原則としてアップロード時に表示された期限まで保存します。本ポリシー制定時点では無料プランが60日、Plusプランが365日です。
           </li>
           <li>
             利用者が画像を削除した場合、または保存期限を過ぎた場合、画像ファイルは削除対象となります。短時間の処理待ち、キャッシュ、障害復旧用の残存が生じる場合があります。
@@ -395,7 +395,7 @@ function EnglishPrivacy() {
         <LegalList>
           <li>
             Image files are generally retained until the expiration shown at upload. As of this
-            Policy’s effective date, the period is 30 days for Free and 365 days for Plus.
+            Policy’s effective date, the period is 60 days for Free and 365 days for Plus.
           </li>
           <li>
             When you delete an image or its retention period expires, the image is scheduled for

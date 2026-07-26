@@ -103,7 +103,7 @@ export default async function TermsPage() {
       <LegalSection title="第6条 保存期間と削除">
         <LegalList>
           <li>
-            画像の保存期限はアップロード時に決まり、管理画面などに表示されます。本規約制定時点では、無料プランはアップロードから30日、Plusプランは365日です。
+            画像の保存期限はアップロード時に決まり、管理画面などに表示されます。本規約制定時点では、無料プランはアップロードから60日、Plusプランは365日です。
           </li>
           <li>
             保存期限を過ぎた画像は自動的に削除され、復元できません。利用者による削除操作も原則として取り消せません。
@@ -320,7 +320,7 @@ function EnglishTerms() {
         <LegalList>
           <li>
             An image expiration date is determined at upload and displayed in the dashboard or
-            elsewhere. As of the effective date of these Terms, Free images are retained for 30 days
+            elsewhere. As of the effective date of these Terms, Free images are retained for 60 days
             and Plus images for 365 days.
           </li>
           <li>

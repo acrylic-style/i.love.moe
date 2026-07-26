@@ -19,7 +19,7 @@ export interface PlanLimits {
 export const FREE_PLAN: PlanLimits = {
   name: "free",
   uploadsPerThirtyDays: 50,
-  retentionDays: 30,
+  retentionDays: 60,
   albums: 1,
   imagesPerAlbum: 20,
   protectedSharing: false,

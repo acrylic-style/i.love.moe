@@ -45,7 +45,7 @@ Next.js App Routerを`@opennextjs/cloudflare`でCloudflare Workersへ配置す�
 
 Web UIは英語と日本語に対応します。言語を明示的に選んでいない場合はブラウザの`Accept-Language`を使い、対応しない言語では英語を表示します。フッターではブラウザ設定、日本語、英語を切り替えられます。明示的な選択は`i_love_moe_locale` Cookieへ最長1年間保存します。
 
-R2では `free/` プレフィックスに30日後、`plus/` プレフィックスに365日後のObject Lifecycle Ruleが設定済みであることを前提とします。アプリはこれらのルールを作成・変更しません。
+R2では `free/` プレフィックスに60日後、`plus/` プレフィックスに365日後のObject Lifecycle Ruleが設定済みであることを前提とします。アプリはこれらのルールを作成・変更しません。
 
 ## PlusとStripe
 
@@ -55,7 +55,7 @@ R2では `free/` プレフィックスに30日後、`plus/` プレフィック�
 4. `npx wrangler queues create i-love-moe-retention` でQueueを作る。
 5. D1マイグレーション後、`npm run deploy`でretention Workerとアプリを順番にデプロイする。
 
-無料プランは直近30日50枚・30日保存・アルバム1冊20枚・URL限定公開です。Plusは直近30日500枚・365日保存・アルバム100冊各200枚・非公開／合言葉付き公開です。加入前の未失効画像はQueue Workerが`plus/`へ移行します。
+無料プランは直近30日50枚・60日保存・アルバム1冊20枚・URL限定公開です。Plusは直近30日500枚・365日保存・アルバム100冊各200枚・非公開／合言葉付き公開です。加入前の未失効画像はQueue Workerが`plus/`へ移行します。
 
 Checkout Sessionではプロモーションコード入力を許可します。カード決済には`request_three_d_secure: "any"`を指定し、3Dセキュアに対応するカードで認証を要求します。実際に追加操作が表示されるかは、Stripeとカード発行会社の判定によります。
 

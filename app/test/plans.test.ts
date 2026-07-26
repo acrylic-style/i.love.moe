@@ -5,7 +5,7 @@ describe("plan limits", () => {
   it("keeps the free experience within the agreed limits", () => {
     expect(FREE_PLAN).toMatchObject({
       uploadsPerThirtyDays: 50,
-      retentionDays: 30,
+      retentionDays: 60,
       albums: 1,
       imagesPerAlbum: 20,
       protectedSharing: false,
