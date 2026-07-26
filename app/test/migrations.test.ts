@@ -159,6 +159,27 @@ describe("D1 migrations", () => {
       verified_server_name: "Verified server",
       server_verified_at: 1,
     });
+    database
+      .prepare(
+        `INSERT INTO server_api_tokens
+          (id, server_id, name, token_hash, token_prefix, created_by_user_id, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run("api-token-1", "server-1", "Website", "api-token-hash", "ilms_example", "user-1", 4);
+    expect(
+      database
+        .prepare("SELECT name, token_prefix, revoked_at FROM server_api_tokens WHERE id = ?")
+        .get("api-token-1"),
+    ).toEqual({ name: "Website", token_prefix: "ilms_example", revoked_at: null });
+    expect(() =>
+      database
+        .prepare(
+          `INSERT INTO server_api_tokens
+            (id, server_id, name, token_hash, token_prefix, created_by_user_id, created_at)
+            VALUES (?, ?, '', ?, ?, ?, ?)`,
+        )
+        .run("api-token-2", "server-1", "another-hash", "ilms_other", "user-1", 4),
+    ).toThrow();
     database.close();
   });
 });

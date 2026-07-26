@@ -99,6 +99,9 @@ Plusのサーバーブランディングでは、アイコン、バナー、ペ�
 - `POST /api/internal/minecraft-verification-codes`: 認証用Velocityから短命コードとオンラインモードで確認したUUID・IDを登録
 - `POST /auth/web-register`: Minecraft認証コードとメールアドレスでWeb新規登録を開始
 - `POST /auth/web-login`: 既存Webアカウントへメールログインリンクを送信
+- `GET /api/v1/server/images`: サーバーAPIトークンに紐づく有効な画像を取得
+- `GET /api/v1/server/images/{id}/content`: 同じサーバーに紐づくPNG本体を取得
+- `GET /api/v1/server/albums`: サーバーAPIトークンに紐づくアルバムと画像構成を取得
 - `GET /api/v1/images`: 所有画像の一覧
 - `POST /api/v1/images/{id}/publish`: 端末が所有する画像を一般公開へ変更。無料プランでも利用可能
 - `POST /api/v1/images/{id}/rename`: 端末が所有する画像のタイトルを変更
@@ -112,6 +115,15 @@ Plusのサーバーブランディングでは、アイコン、バナー、ペ�
 - `POST /api/billing/checkout`: Stripe Checkoutを開始
 - `POST /api/billing/portal`: Stripe Customer Portalを開始
 - `POST /api/stripe/webhook`: Stripe署名付きWebhookを処理
+
+サーバー所有者はサーバー管理画面から、読み取り専用のサーバーAPIトークンを10個まで発行できます。秘密値は作成時に一度だけ表示し、DBにはSHA-256ハッシュだけを保存します。サーバーAPIは、そのサーバーで一般公開されている有効な画像・アルバムを返します。画像側でMinecraft ID表示を無効にしている場合はUUID・IDを返しません。非公開・URL限定・合言葉付き公開をトークンで迂回することはできず、編集系APIもサーバーAPIトークンを受け付けません。
+
+```sh
+curl -H "Authorization: Bearer ilms_..." \
+  "https://i.らぶ.moe/api/v1/server/images?limit=50"
+```
+
+レスポンスの`nextCursor`を次のリクエストの`cursor`へ渡すと続きを取得できます。画像本体の`contentUrl`にも同じAuthorizationヘッダーが必要です。
 
 Modなしの新規登録では、`verify.moe.pictures` のオンラインモードVelocityへ接続し、切断画面に表示されたコードとメールアドレスを `/register` へ入力します。`WEB_REGISTRATION_ENABLED=true` の場合だけ受け付けます。VelocityのDocker Compose構成は `../verification-server` にあります。
 

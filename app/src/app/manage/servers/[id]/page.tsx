@@ -4,6 +4,7 @@ import { getEnv } from "@/cloudflare";
 import { AsyncForm } from "@/components/async-form";
 import { LocalDateTime } from "@/components/local-date-time";
 import { ServerManager } from "@/components/server-manager";
+import { ServerApiTokens } from "@/components/server-api-tokens";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +19,7 @@ import {
   managedServerDiscordWebhooks,
   managedServerImages,
 } from "@/servers";
+import { managedServerApiTokens } from "@/server-api";
 
 export const dynamic = "force-dynamic";
 
@@ -36,19 +38,21 @@ export default async function ManageServerPage({
   const env = getEnv();
   const session = await authenticateSessionToken((await cookies()).get("session")?.value, env);
   if (!session) notFound();
-  const [detail, domain, plus, feedPage, editors, discordWebhooks] = await Promise.all([
-    managedServerDetail(env, session.user_id, id),
-    customDomainForServer(env, id),
-    canUseServerPlus(env, id),
-    managedServerImages(env, id, { filter: feedFilter, cursor: query.cursor }),
-    env.DB.prepare(
-      `SELECT m.user_id, u.email FROM server_members m JOIN users u ON u.id = m.user_id
+  const [detail, domain, plus, feedPage, editors, discordWebhooks, serverApiTokens] =
+    await Promise.all([
+      managedServerDetail(env, session.user_id, id),
+      customDomainForServer(env, id),
+      canUseServerPlus(env, id),
+      managedServerImages(env, id, { filter: feedFilter, cursor: query.cursor }),
+      env.DB.prepare(
+        `SELECT m.user_id, u.email FROM server_members m JOIN users u ON u.id = m.user_id
         WHERE m.server_id = ? AND m.role = 'editor' ORDER BY m.created_at`,
-    )
-      .bind(id)
-      .all<{ user_id: string; email: string }>(),
-    managedServerDiscordWebhooks(env, id),
-  ]);
+      )
+        .bind(id)
+        .all<{ user_id: string; email: string }>(),
+      managedServerDiscordWebhooks(env, id),
+      managedServerApiTokens(env, id),
+    ]);
   if (!detail) notFound();
   const feedImages = feedPage.images;
   const ja = locale === "ja";
@@ -556,6 +560,9 @@ export default async function ManageServerPage({
               </a>
             )}
           </section>
+          {detail.role === "owner" && (
+            <ServerApiTokens serverId={id} tokens={serverApiTokens} locale={locale} />
+          )}
           {detail.role === "owner" && (
             <section className="space-y-4">
               <h2 className="text-2xl font-semibold">{ja ? "編集者" : "Editors"}</h2>
