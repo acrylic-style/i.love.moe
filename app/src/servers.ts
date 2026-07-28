@@ -435,6 +435,29 @@ export async function serverFavoriteIpHash(
   return ip ? hmacSha256(env.RATE_LIMIT_SALT, `server-favorite:${ip}`) : null;
 }
 
+export async function serverImageFavoriteSummary(
+  env: CloudflareEnv,
+  imageId: string,
+  headers: Headers,
+): Promise<{ count: number; favorited: boolean } | null> {
+  const voterIpHash = await serverFavoriteIpHash(env, headers);
+  const row = await env.DB.prepare(
+    `SELECT COUNT(f.image_id) AS favorite_count,
+      ${
+        voterIpHash ? "MAX(CASE WHEN f.voter_ip_hash = ? THEN 1 ELSE 0 END)" : "0"
+      } AS viewer_favorited
+    FROM images i
+    LEFT JOIN server_image_favorites f ON f.image_id = i.id
+    WHERE i.id = ? AND i.server_id IS NOT NULL
+      AND i.discoverability = 'public' AND i.visibility = 'unlisted'
+      AND i.deleted_at IS NULL AND i.expires_at > ?
+    GROUP BY i.id`,
+  )
+    .bind(...(voterIpHash ? [voterIpHash, imageId, Date.now()] : [imageId, Date.now()]))
+    .first<{ favorite_count: number; viewer_favorited: number }>();
+  return row ? { count: row.favorite_count, favorited: Boolean(row.viewer_favorited) } : null;
+}
+
 export async function updateServerImageFavorite(
   request: Request,
   env: CloudflareEnv,
@@ -452,7 +475,8 @@ export async function updateServerImageFavorite(
   const customDomainServerId = request.headers.get("x-i-love-moe-server-id");
   const image = await env.DB.prepare(
     `SELECT id, server_id FROM images
-      WHERE id = ? AND discoverability = 'public' AND visibility = 'unlisted'
+      WHERE id = ? AND server_id IS NOT NULL
+        AND discoverability = 'public' AND visibility = 'unlisted'
         AND deleted_at IS NULL AND expires_at > ?`,
   )
     .bind(imageId, Date.now())

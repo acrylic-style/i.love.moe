@@ -16,6 +16,8 @@ import { getI18n } from "@/i18n/server";
 import { buildOpenGraphImage } from "@/og";
 import { activeCustomDomainForServer } from "@/custom-domains";
 import { Badge } from "@/components/ui/badge";
+import { FavoriteButton } from "@/components/favorite-button";
+import { serverImageFavoriteSummary } from "@/servers";
 
 export const dynamic = "force-dynamic";
 
@@ -267,6 +269,10 @@ export default async function ViewerPage({
         t("viewer.reportSubject", { code }),
       )}&body=${encodeURIComponent(`${t("viewer.reportBody")}\n\n${reportPageUrl}`)}`
     : null;
+  const favorite =
+    image.server_id && image.visibility === "unlisted" && image.discoverability === "public"
+      ? await serverImageFavoriteSummary(env, image.id, await headers())
+      : null;
   return (
     <main className="mx-auto max-w-6xl">
       <Card className="bg-card/95 shadow-2xl">
@@ -276,6 +282,15 @@ export default async function ViewerPage({
             <Badge variant="outline" className={visibilityBadgeClass}>
               {t(`viewer.visibility.${visibility}`)}
             </Badge>
+            {favorite && (
+              <FavoriteButton
+                endpoint={`/servers/favorites/${image.id}`}
+                initialCount={favorite.count}
+                initialFavorited={favorite.favorited}
+                label={t("servers.favorite")}
+                failedLabel={t("library.error.request_failed")}
+              />
+            )}
           </div>
           {image.description && (
             <CardDescription className="whitespace-pre-wrap">{image.description}</CardDescription>

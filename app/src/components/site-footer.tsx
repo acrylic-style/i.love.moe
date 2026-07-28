@@ -32,9 +32,7 @@ export function SiteFooter({ legalNoticeUrl }: { legalNoticeUrl?: string }) {
               <option value="ja">{t("footer.language.ja")}</option>
             </select>
           </label>
-          <a href="https://discord.gg/nScJPB8qze">
-            Discord
-          </a>
+          <a href="https://discord.gg/nScJPB8qze">Discord</a>
           <nav aria-label={t("footer.legalNav")} className="flex flex-wrap gap-x-5 gap-y-2">
             <a className="hover:text-foreground" href="/terms">
               {t("footer.terms")}

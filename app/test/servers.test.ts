@@ -6,6 +6,7 @@ import {
   normalizeServerBrandColor,
   parseServerAddress,
   serverFavoriteIpHash,
+  serverImageFavoriteSummary,
 } from "../src/servers";
 
 describe("Minecraft server address normalization", () => {
@@ -67,6 +68,40 @@ describe("Minecraft server address normalization", () => {
     expect(first).toBe(second);
     expect(first).not.toBe(other);
     expect(first).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("loads the current viewer's favorite state for a public server image", async () => {
+    const sql: string[] = [];
+    const bindings: unknown[][] = [];
+    const env = {
+      RATE_LIMIT_SALT: "s".repeat(32),
+      DB: {
+        prepare(query: string) {
+          sql.push(query);
+          return {
+            bind(...values: unknown[]) {
+              bindings.push(values);
+              return this;
+            },
+            async first() {
+              return { favorite_count: 7, viewer_favorited: 1 };
+            },
+          };
+        },
+      },
+    } as unknown as CloudflareEnv;
+
+    await expect(
+      serverImageFavoriteSummary(
+        env,
+        "image-1",
+        new Headers({ host: "example.com", "cf-connecting-ip": "203.0.113.9" }),
+      ),
+    ).resolves.toEqual({ count: 7, favorited: true });
+    expect(sql[0]).toContain("i.server_id IS NOT NULL");
+    expect(sql[0]).toContain("i.discoverability = 'public'");
+    expect(sql[0]).toContain("i.visibility = 'unlisted'");
+    expect(bindings[0]).toHaveLength(3);
   });
 
   it("normalizes six-digit server branding colors", () => {
