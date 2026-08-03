@@ -292,16 +292,19 @@ export async function serveUserAvatar(env: CloudflareEnv, identifier: string): P
       `https://mc-heads.net/avatar/${encodeURIComponent(profile.primary_minecraft_uuid)}/160.png`,
       {
         headers: { accept: "image/png" },
-        redirect: "error",
+        redirect: "manual",
         cf: { cacheEverything: true, cacheTtl: AVATAR_CACHE_SECONDS },
       },
     );
-    if (
-      !upstream.ok ||
-      !upstream.body ||
-      !upstream.headers.get("content-type")?.toLowerCase().startsWith("image/png")
-    )
+    const contentType = upstream.headers.get("content-type");
+    if (!upstream.ok || !upstream.body || !contentType?.toLowerCase().startsWith("image/png")) {
+      console.warn("user_avatar_upstream_invalid", {
+        status: upstream.status,
+        contentType,
+        hasBody: Boolean(upstream.body),
+      });
       return defaultAvatar();
+    }
     return new Response(upstream.body, {
       headers: {
         "content-type": "image/png",
@@ -309,7 +312,8 @@ export async function serveUserAvatar(env: CloudflareEnv, identifier: string): P
         "x-content-type-options": "nosniff",
       },
     });
-  } catch {
+  } catch (error) {
+    console.error("user_avatar_fetch_failed", avatarFetchErrorDetails(error));
     return defaultAvatar();
   }
 }
@@ -381,4 +385,30 @@ function defaultAvatar(): Response {
       "x-content-type-options": "nosniff",
     },
   });
+}
+
+function avatarFetchErrorDetails(error: unknown): {
+  errorName: string;
+  message: string | null;
+  causeCode: string | null;
+} {
+  if (!(error instanceof Error)) {
+    return { errorName: "UnknownError", message: null, causeCode: null };
+  }
+  const cause = error.cause;
+  const causeCode =
+    typeof cause === "object" && cause !== null && "code" in cause && typeof cause.code === "string"
+      ? cause.code
+      : null;
+  return {
+    errorName: error.name,
+    message: error.message
+      .replace(/https?:\/\/\S+/gi, "[redacted-url]")
+      .replace(
+        /[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}/gi,
+        "[redacted-uuid]",
+      )
+      .slice(0, 240),
+    causeCode,
+  };
 }

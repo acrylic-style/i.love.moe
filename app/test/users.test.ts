@@ -81,10 +81,12 @@ describe("public user profiles", () => {
 
   it("proxies an avatar by verified UUID without exposing it in the route", async () => {
     const requests: string[] = [];
+    const requestOptions: RequestInit[] = [];
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (input: string | URL | Request) => {
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         requests.push(String(input));
+        requestOptions.push(init ?? {});
         return new Response(new Uint8Array([1, 2, 3]), {
           headers: { "content-type": "image/png" },
         });
@@ -109,9 +111,11 @@ describe("public user profiles", () => {
     expect(response.headers.get("content-type")).toBe("image/png");
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(requests[0]).toContain(profile.primary_minecraft_uuid);
+    expect(requestOptions[0]?.redirect).toBe("manual");
   });
 
   it("returns a local SVG when the avatar provider fails", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(null, { status: 503 })),
@@ -132,6 +136,51 @@ describe("public user profiles", () => {
     } as unknown as CloudflareEnv;
     const response = await serveUserAvatar(env, "player-one");
     expect(response.headers.get("content-type")).toContain("image/svg+xml");
+    expect(warning).toHaveBeenCalledWith("user_avatar_upstream_invalid", {
+      status: 503,
+      contentType: null,
+      hasBody: false,
+    });
+    warning.mockRestore();
+  });
+
+  it("logs the error type without profile identifiers when the avatar request throws", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw Object.assign(
+          new TypeError(
+            `Fetch API cannot load https://mc-heads.net/avatar/${profile.primary_minecraft_uuid}/160.png`,
+          ),
+          { cause: { code: "network_error" } },
+        );
+      }),
+    );
+    const env = {
+      DB: {
+        prepare() {
+          return {
+            bind() {
+              return this;
+            },
+            async first() {
+              return profile;
+            },
+          };
+        },
+      },
+    } as unknown as CloudflareEnv;
+    const response = await serveUserAvatar(env, "player-one");
+    expect(response.headers.get("content-type")).toContain("image/svg+xml");
+    expect(error).toHaveBeenCalledWith("user_avatar_fetch_failed", {
+      errorName: "TypeError",
+      message: "Fetch API cannot load [redacted-url]",
+      causeCode: "network_error",
+    });
+    expect(JSON.stringify(error.mock.calls)).not.toContain(profile.primary_minecraft_uuid);
+    expect(JSON.stringify(error.mock.calls)).not.toContain("player-one");
+    error.mockRestore();
   });
 
   it("creates and publishes a profile with a verified Minecraft identity", async () => {
