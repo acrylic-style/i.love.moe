@@ -213,6 +213,16 @@ export default async function ManagePage({
 
       <section className="flex flex-wrap items-end justify-between gap-4">
         <div>
+          <h2 className="text-2xl font-semibold">{t("users.manageTitle")}</h2>
+          <p className="text-muted-foreground">{t("users.manageDescription")}</p>
+        </div>
+        <a className={buttonVariants({ variant: "outline" })} href="/manage/profile">
+          {t("common.edit")}
+        </a>
+      </section>
+
+      <section className="flex flex-wrap items-end justify-between gap-4">
+        <div>
           <h2 className="text-2xl font-semibold">{t("servers.manageTitle")}</h2>
           <p className="text-muted-foreground">{t("servers.manageDescription")}</p>
         </div>

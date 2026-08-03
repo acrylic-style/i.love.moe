@@ -11,7 +11,10 @@ export default async function TermsPage() {
   const { locale } = await getI18n();
   if (locale === "en") return <EnglishTerms />;
   return (
-    <LegalDocument title="利用規約" description="制定・施行日：2026年7月24日">
+    <LegalDocument
+      title="利用規約"
+      description="制定・施行日：2026年7月24日／最終更新日：2026年8月3日"
+    >
       <p>
         この利用規約（以下「本規約」といいます。）は、i.らぶ.moeの運営者（以下「運営者」といいます。）が提供するMinecraftスクリーンショットの保存・共有サービス「i.らぶ.moe」（以下「本サービス」といいます。）の利用条件を定めるものです。
       </p>
@@ -40,6 +43,9 @@ export default async function TermsPage() {
           </li>
           <li>
             ログインした利用者は、画像タイトル、Minecraftサーバー名・アドレス、アルバム、タグ、お気に入り、公開範囲などを管理できます。
+          </li>
+          <li>
+            利用者は、認証済みMinecraftプロフィールを代表として選び、表示名、自己紹介、プロフィールURLを含むユーザーページを任意に一般公開できます。
           </li>
           <li>
             公開範囲には、一般公開、URL限定公開、非公開、合言葉付き公開があります。一般公開はサーバーページ、検索結果、接続された独自ドメインに掲載されます。URL限定公開は検索一覧への掲載を意図しない方式ですが、URLを知る人の閲覧を技術的に制限するものではありません。
@@ -78,6 +84,10 @@ export default async function TermsPage() {
           <li>
             認証用Velocityサーバーがオンラインモードで確認したUUIDとMinecraft
             IDだけを認証済みとして扱います。認証コードを第三者へ渡してはなりません。
+          </li>
+          <li>
+            公開ユーザーページを有効にすると、表示名、自己紹介、代表Minecraft
+            IDとその顔画像、および利用者の一般公開画像・アルバムが誰でも閲覧でき、一般公開作品からプロフィールへリンクされます。
           </li>
           <li>
             Minecraftのスクリーンショットには、他のプレイヤーの名前、スキン、チャット、サーバー情報などが含まれる場合があります。利用者は、関係者のプライバシー、各サーバーの規約、著作権その他の権利に配慮してください。
@@ -209,7 +219,10 @@ export default async function TermsPage() {
 
 function EnglishTerms() {
   return (
-    <LegalDocument title="Terms of Service" description="Established and effective: July 24, 2026">
+    <LegalDocument
+      title="Terms of Service"
+      description="Established and effective: July 24, 2026 / Last updated: August 3, 2026"
+    >
       <p>
         These Terms of Service (the “Terms”) set out the conditions for using i.らぶ.moe (the
         “Service”), a Minecraft screenshot storage and sharing service provided by the operator of
@@ -242,6 +255,10 @@ function EnglishTerms() {
           <li>
             Signed-in users can manage image titles, Minecraft server names and addresses, albums,
             tags, favorites, visibility, and related settings.
+          </li>
+          <li>
+            Users may select a verified Minecraft profile and optionally publish a user page with a
+            display name, bio, and profile URL.
           </li>
           <li>
             Visibility options include public, anyone with the URL, private, and
@@ -288,6 +305,11 @@ function EnglishTerms() {
           <li>
             Only UUIDs and Minecraft IDs confirmed by the online-mode Velocity verification server
             are treated as verified. You must not share a verification code with another person.
+          </li>
+          <li>
+            When you publish a user page, anyone can view its display name, bio, primary Minecraft
+            ID and avatar, and your public images and albums. Public Uploaded Data may link back to
+            that profile.
           </li>
           <li>
             Minecraft screenshots may contain player names, skins, chat, and server information. You

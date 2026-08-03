@@ -70,7 +70,7 @@ describe("Minecraft server address normalization", () => {
     expect(first).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  it("loads the current viewer's favorite state for a public server image", async () => {
+  it("loads the current viewer's favorite state for any public image", async () => {
     const sql: string[] = [];
     const bindings: unknown[][] = [];
     const env = {
@@ -98,7 +98,7 @@ describe("Minecraft server address normalization", () => {
         new Headers({ host: "example.com", "cf-connecting-ip": "203.0.113.9" }),
       ),
     ).resolves.toEqual({ count: 7, favorited: true });
-    expect(sql[0]).toContain("i.server_id IS NOT NULL");
+    expect(sql[0]).not.toContain("i.server_id IS NOT NULL");
     expect(sql[0]).toContain("i.discoverability = 'public'");
     expect(sql[0]).toContain("i.visibility = 'unlisted'");
     expect(bindings[0]).toHaveLength(3);

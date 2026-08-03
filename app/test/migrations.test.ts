@@ -112,6 +112,44 @@ describe("D1 migrations", () => {
       )
       .run(3, "user-1", "123e4567-e89b-12d3-a456-426614174000");
     database
+      .prepare(
+        `INSERT INTO user_profiles
+          (user_id, display_name, bio, primary_minecraft_uuid, published_at, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run("user-1", "Player One", "Builder", "123e4567-e89b-12d3-a456-426614174000", 3, 3, 3);
+    database
+      .prepare(
+        `INSERT INTO user_profile_identifiers (identifier, user_id, is_current, created_at)
+          VALUES (?, ?, 1, ?)`,
+      )
+      .run("player-one", "user-1", 3);
+    expect(() =>
+      database
+        .prepare(
+          `INSERT INTO user_profile_identifiers (identifier, user_id, is_current, created_at)
+            VALUES (?, ?, 1, ?)`,
+        )
+        .run("player-one-new", "user-1", 4),
+    ).toThrow();
+    database
+      .prepare("UPDATE user_profile_identifiers SET is_current = 0 WHERE identifier = ?")
+      .run("player-one");
+    database
+      .prepare(
+        `INSERT INTO user_profile_identifiers (identifier, user_id, is_current, created_at)
+          VALUES (?, ?, 1, ?)`,
+      )
+      .run("player-one-new", "user-1", 4);
+    expect(
+      database
+        .prepare(
+          `SELECT identifier FROM user_profile_identifiers
+            WHERE user_id = ? AND is_current = 1`,
+        )
+        .get("user-1"),
+    ).toEqual({ identifier: "player-one-new" });
+    database
       .prepare("INSERT INTO users (id, email, created_at) VALUES (?, ?, ?)")
       .run("user-2", "second@example.com", 1);
     expect(() =>

@@ -17,7 +17,8 @@ import { buildOpenGraphImage } from "@/og";
 import { activeCustomDomainForServer } from "@/custom-domains";
 import { Badge } from "@/components/ui/badge";
 import { FavoriteButton } from "@/components/favorite-button";
-import { serverImageFavoriteSummary } from "@/servers";
+import { imageFavoriteSummary } from "@/servers";
+import { publicUserAttribution } from "@/users";
 
 export const dynamic = "force-dynamic";
 
@@ -178,12 +179,27 @@ export default async function ViewerPage({
   }
   if (target.type === "album") {
     const { album, images } = target.detail;
+    const author =
+      album.visibility === "unlisted" && album.discoverability === "public"
+        ? await publicUserAttribution(env, album.owner_user_id)
+        : null;
     return (
       <main className="mx-auto max-w-6xl">
         <Card className="bg-card/95 shadow-2xl">
           <CardHeader>
             <p className="text-sm font-bold tracking-[0.16em] text-primary">Album</p>
             <CardTitle className="text-3xl sm:text-5xl">{album.title}</CardTitle>
+            {author && (
+              <p className="text-sm text-muted-foreground">
+                {t("viewer.author")}:{" "}
+                <a
+                  className="font-medium text-foreground underline-offset-4 hover:underline"
+                  href={new URL(`/users/${author.slug}`, env.PUBLIC_BASE_URL).toString()}
+                >
+                  {author.displayName}
+                </a>
+              </p>
+            )}
             {album.description && (
               <CardDescription className="whitespace-pre-wrap text-base">
                 {album.description}
@@ -269,10 +285,11 @@ export default async function ViewerPage({
         t("viewer.reportSubject", { code }),
       )}&body=${encodeURIComponent(`${t("viewer.reportBody")}\n\n${reportPageUrl}`)}`
     : null;
-  const favorite =
-    image.server_id && image.visibility === "unlisted" && image.discoverability === "public"
-      ? await serverImageFavoriteSummary(env, image.id, await headers())
-      : null;
+  const publiclyListed = image.visibility === "unlisted" && image.discoverability === "public";
+  const [favorite, author] = await Promise.all([
+    publiclyListed ? imageFavoriteSummary(env, image.id, await headers()) : null,
+    publiclyListed ? publicUserAttribution(env, image.owner_user_id) : null,
+  ]);
   return (
     <main className="mx-auto max-w-6xl">
       <Card className="bg-card/95 shadow-2xl">
@@ -284,7 +301,7 @@ export default async function ViewerPage({
             </Badge>
             {favorite && (
               <FavoriteButton
-                endpoint={`/servers/favorites/${image.id}`}
+                endpoint={`/favorites/images/${image.id}`}
                 initialCount={favorite.count}
                 initialFavorited={favorite.favorited}
                 label={t("servers.favorite")}
@@ -328,6 +345,17 @@ export default async function ViewerPage({
               }
             />
           </div>
+          {author && (
+            <div className="mt-4 text-sm">
+              <span className="text-muted-foreground">{t("viewer.author")}: </span>
+              <a
+                className="font-medium underline-offset-4 hover:underline"
+                href={new URL(`/users/${author.slug}`, env.PUBLIC_BASE_URL).toString()}
+              >
+                {author.displayName}
+              </a>
+            </div>
+          )}
           {image.minecraft_name && image.minecraft_id_public !== 0 && (
             <div className="mt-4 text-sm">
               <span className="text-muted-foreground">{t("viewer.minecraftId")}: </span>

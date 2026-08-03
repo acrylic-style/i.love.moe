@@ -11,7 +11,10 @@ export default async function PrivacyPage() {
   const { locale } = await getI18n();
   if (locale === "en") return <EnglishPrivacy />;
   return (
-    <LegalDocument title="プライバシーポリシー" description="制定・施行日：2026年7月24日">
+    <LegalDocument
+      title="プライバシーポリシー"
+      description="制定・施行日：2026年7月24日／最終更新日：2026年8月3日"
+    >
       <p>
         i.らぶ.moeの運営者（以下「運営者」といいます。）は、本サービスで取り扱う利用者情報を、個人情報の保護に関する法律その他の関係法令に従い、次のとおり取り扱います。
       </p>
@@ -29,7 +32,7 @@ export default async function PrivacyPage() {
           </li>
           <li>
             <span className="text-foreground">投稿データ：</span>
-            スクリーンショット、画像タイトル、画像サイズ・寸法、アルバム名・説明・並び順、タグ、お気に入り、公開範囲、Minecraftサーバー名・アドレス、サーバーページのプロフィール・検証情報・編集者、接続する独自ドメイン、短縮URL、保存期限
+            スクリーンショット、画像タイトル、画像サイズ・寸法、アルバム名・説明・並び順、タグ、お気に入り、公開範囲、Minecraftサーバー名・アドレス、サーバーページのプロフィール・検証情報・編集者、ユーザープロフィールの表示名・自己紹介・URL・代表Minecraftプロフィール・公開状態、接続する独自ドメイン、短縮URL、保存期限
           </li>
           <li>
             <span className="text-foreground">Discord連携情報：</span>
@@ -104,7 +107,7 @@ export default async function PrivacyPage() {
       <LegalSection title="4. 公開と共有に関する注意">
         <LegalList>
           <li>
-            一般公開を選んだ投稿データ、サーバーページのプロフィール、検証済み接続先は、検索結果や利用者が接続した独自ドメインを含め、誰でも閲覧できます。
+            一般公開を選んだ投稿データ、公開ユーザープロフィール、サーバーページのプロフィール、検証済み接続先は、検索結果や利用者が接続した独自ドメインを含め、誰でも閲覧できます。公開ユーザープロフィールは一般公開作品からリンクされます。
           </li>
           <li>URL限定公開を選んだ投稿データは、短縮URLを知るすべての人が閲覧できます。</li>
           <li>
@@ -145,6 +148,11 @@ export default async function PrivacyPage() {
           <li>
             <span className="text-foreground">Discord Inc.：</span>
             確認済みサーバーの管理者がWebhook連携を有効にした場合の、公開画像のチャンネル通知
+          </li>
+          <li>
+            <span className="text-foreground">MCHeads：</span>
+            公開ユーザープロフィールの代表Minecraft
+            UUIDを用いた顔画像の生成。閲覧者からの通信はCloudflare上の本サービスが代理します。
           </li>
         </LegalList>
         <p>外部事業者による取扱いには、各事業者のプライバシーポリシーが適用されます。</p>
@@ -208,7 +216,10 @@ export default async function PrivacyPage() {
 
 function EnglishPrivacy() {
   return (
-    <LegalDocument title="Privacy Policy" description="Established and effective: July 24, 2026">
+    <LegalDocument
+      title="Privacy Policy"
+      description="Established and effective: July 24, 2026 / Last updated: August 3, 2026"
+    >
       <p>
         The operator of i.らぶ.moe (the “Operator”) handles user information processed through the
         Service as described below, in accordance with Japan’s Act on the Protection of Personal
@@ -232,7 +243,8 @@ function EnglishPrivacy() {
             Screenshots, image titles, file sizes and dimensions, album names and descriptions,
             display order, tags, favorites, visibility, Minecraft server names and addresses,
             server-page profiles, verification and editor information, connected custom domains,
-            short URLs, and expiration dates.
+            user-profile display names, bios, URLs, primary Minecraft profiles and publication
+            status, short URLs, and expiration dates.
           </li>
           <li>
             <span className="text-foreground">Discord integration information: </span>
@@ -331,8 +343,10 @@ function EnglishPrivacy() {
       <LegalSection title="4. Public and shared content">
         <LegalList>
           <li>
-            Public Uploaded Data, server-page profiles, and verified connection addresses can be
-            viewed by anyone, including through search results and user-connected custom domains.
+            Public Uploaded Data, published user profiles, server-page profiles, and verified
+            connection addresses can be viewed by anyone, including through search results and
+            user-connected custom domains. Public Uploaded Data may link to its author’s published
+            user profile.
           </li>
           <li>
             Uploaded Data shared with anyone who has the URL can be viewed by anyone who knows it.
@@ -377,6 +391,11 @@ function EnglishPrivacy() {
           <li>
             <span className="text-foreground">Discord Inc.: </span>
             Channel notifications for public images when enabled by a verified-server manager.
+          </li>
+          <li>
+            <span className="text-foreground">MCHeads: </span>
+            Generation of an avatar from the primary Minecraft UUID of a published user profile. The
+            Service proxies viewer requests through Cloudflare.
           </li>
         </LegalList>
         <p>Each provider’s privacy policy applies to its handling of information.</p>

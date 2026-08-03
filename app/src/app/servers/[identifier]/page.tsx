@@ -208,7 +208,7 @@ export async function ServerGallery({
                     {image.title ?? image.code}
                   </a>
                   <FavoriteButton
-                    endpoint={`/servers/favorites/${image.id}`}
+                    endpoint={`/favorites/images/${image.id}`}
                     initialCount={image.favorite_count}
                     initialFavorited={Boolean(image.viewer_favorited)}
                     label={t("servers.favorite")}

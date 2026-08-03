@@ -440,6 +440,14 @@ export async function serverImageFavoriteSummary(
   imageId: string,
   headers: Headers,
 ): Promise<{ count: number; favorited: boolean } | null> {
+  return imageFavoriteSummary(env, imageId, headers);
+}
+
+export async function imageFavoriteSummary(
+  env: CloudflareEnv,
+  imageId: string,
+  headers: Headers,
+): Promise<{ count: number; favorited: boolean } | null> {
   const voterIpHash = await serverFavoriteIpHash(env, headers);
   const row = await env.DB.prepare(
     `SELECT COUNT(f.image_id) AS favorite_count,
@@ -448,8 +456,7 @@ export async function serverImageFavoriteSummary(
       } AS viewer_favorited
     FROM images i
     LEFT JOIN server_image_favorites f ON f.image_id = i.id
-    WHERE i.id = ? AND i.server_id IS NOT NULL
-      AND i.discoverability = 'public' AND i.visibility = 'unlisted'
+    WHERE i.id = ? AND i.discoverability = 'public' AND i.visibility = 'unlisted'
       AND i.deleted_at IS NULL AND i.expires_at > ?
     GROUP BY i.id`,
   )
@@ -459,6 +466,14 @@ export async function serverImageFavoriteSummary(
 }
 
 export async function updateServerImageFavorite(
+  request: Request,
+  env: CloudflareEnv,
+  imageId: string,
+): Promise<Response> {
+  return updateImageFavorite(request, env, imageId);
+}
+
+export async function updateImageFavorite(
   request: Request,
   env: CloudflareEnv,
   imageId: string,
@@ -475,8 +490,7 @@ export async function updateServerImageFavorite(
   const customDomainServerId = request.headers.get("x-i-love-moe-server-id");
   const image = await env.DB.prepare(
     `SELECT id, server_id FROM images
-      WHERE id = ? AND server_id IS NOT NULL
-        AND discoverability = 'public' AND visibility = 'unlisted'
+      WHERE id = ? AND discoverability = 'public' AND visibility = 'unlisted'
         AND deleted_at IS NULL AND expires_at > ?`,
   )
     .bind(imageId, Date.now())

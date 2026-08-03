@@ -66,7 +66,7 @@ export function SiteHeader({
           ) : null}
         </div>
         <nav
-          className="flex shrink-0 items-center justify-end gap-1 sm:gap-2"
+          className="flex w-full flex-wrap items-center justify-start gap-1 sm:w-auto sm:shrink-0 sm:flex-nowrap sm:justify-end sm:gap-2"
           aria-label={t("header.navigation")}
         >
           <a className={buttonVariants({ variant: "ghost", size: "sm" })} href={guideUrl}>

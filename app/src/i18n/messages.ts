@@ -388,6 +388,29 @@ const en: Record<string, string> = {
   "servers.favorite": "Favorite",
   "servers.all": "All servers",
   "servers.verifiedOnly": "Verified servers",
+  "users.manageTitle": "Your public profile",
+  "users.manageDescription":
+    "Choose what visitors see on your public user page and publish it when you are ready.",
+  "users.displayName": "Display name",
+  "users.bio": "Bio",
+  "users.slug": "Profile URL",
+  "users.slugHelp": "Use 3–32 lowercase letters, numbers, or hyphens. Old URLs stay reserved.",
+  "users.minecraftProfile": "Primary Minecraft profile",
+  "users.minecraftProfileHelp":
+    "The selected Minecraft name and face are shown publicly. The UUID is never displayed.",
+  "users.published": "Publish this profile",
+  "users.publishedHelp":
+    "When disabled, the profile, avatar, and author links return to being private.",
+  "users.noVerifiedProfile": "Verify a Minecraft profile before creating a public profile.",
+  "users.verifyMinecraft": "Verify a Minecraft profile",
+  "users.saveFailed": "Could not save",
+  "users.invalidProfile": "Check the display name, bio, and profile URL.",
+  "users.invalidPrimaryProfile": "Choose one of your verified Minecraft profiles.",
+  "users.slugUnavailable": "That profile URL is already in use or was used previously.",
+  "users.viewProfile": "View public profile",
+  "users.images": "Screenshots",
+  "users.noImages": "There are no public screenshots yet.",
+  "users.albums": "Albums",
   "viewer.imagePreviewDescription": "A Minecraft screenshot shared with i.らぶ.moe.",
   "viewer.albumPreviewDescription": "A Minecraft screenshot album shared with i.らぶ.moe.",
   "viewer.albumEmpty": "This album has no images that are currently available.",
@@ -400,6 +423,7 @@ const en: Record<string, string> = {
     "There have been too many attempts. Please wait about 15 minutes and try again.",
   "viewer.openPage": "Open page",
   "viewer.minecraftId": "Minecraft ID",
+  "viewer.author": "Author",
   "viewer.reportImage": "Report this image",
   "viewer.reportSubject": "Image report: {code}",
   "viewer.reportBody":
@@ -445,7 +469,7 @@ const en: Record<string, string> = {
   "plus.manage": "View subscription",
   "plus.start": "Start Plus",
   "form.plusRequired": "This operation requires Plus.",
-  "legal.effectiveDate": "Established and effective: July 23, 2026",
+  "legal.effectiveDate": "Established and effective: July 24, 2026 / Last updated: August 3, 2026",
 };
 
 const ja: Record<string, string> = {
@@ -834,6 +858,27 @@ const ja: Record<string, string> = {
   "servers.favorite": "お気に入り",
   "servers.all": "すべてのサーバー",
   "servers.verifiedOnly": "確認済みサーバー",
+  "users.manageTitle": "公開ユーザープロフィール",
+  "users.manageDescription": "ユーザーページに表示する内容を整え、準備ができたら公開できます。",
+  "users.displayName": "表示名",
+  "users.bio": "自己紹介",
+  "users.slug": "プロフィールURL",
+  "users.slugHelp":
+    "小文字英数字とハイフンを使い、3〜32文字で入力してください。旧URLも予約されます。",
+  "users.minecraftProfile": "代表Minecraftプロフィール",
+  "users.minecraftProfileHelp": "選んだMinecraft名と顔が公開されます。UUIDは画面に表示しません。",
+  "users.published": "このプロフィールを公開する",
+  "users.publishedHelp": "オフにすると、プロフィール、顔画像、投稿者リンクは非公開に戻ります。",
+  "users.noVerifiedProfile": "公開プロフィールを作る前にMinecraftプロフィールを認証してください。",
+  "users.verifyMinecraft": "Minecraftプロフィールを認証",
+  "users.saveFailed": "保存できませんでした",
+  "users.invalidProfile": "表示名、自己紹介、プロフィールURLを確認してください。",
+  "users.invalidPrimaryProfile": "認証済みMinecraftプロフィールを選んでください。",
+  "users.slugUnavailable": "そのプロフィールURLは使用中、または過去に使用されています。",
+  "users.viewProfile": "公開プロフィールを見る",
+  "users.images": "スクリーンショット",
+  "users.noImages": "一般公開のスクリーンショットはまだありません。",
+  "users.albums": "アルバム",
   "viewer.imagePreviewDescription": "i.らぶ.moeで共有されたMinecraftのスクリーンショットです。",
   "viewer.albumPreviewDescription":
     "i.らぶ.moeで共有されたMinecraftのスクリーンショットアルバムです。",
@@ -846,6 +891,7 @@ const ja: Record<string, string> = {
   "viewer.tooManyAttempts": "試行回数が多いため、15分ほど待ってからお試しください。",
   "viewer.openPage": "ページを開く",
   "viewer.minecraftId": "Minecraft ID",
+  "viewer.author": "投稿者",
   "viewer.reportImage": "この画像を通報",
   "viewer.reportSubject": "画像の通報: {code}",
   "viewer.reportBody":
@@ -891,7 +937,7 @@ const ja: Record<string, string> = {
   "plus.manage": "契約内容を確認",
   "plus.start": "Plusを始める",
   "form.plusRequired": "この操作にはPlusが必要です。",
-  "legal.effectiveDate": "制定・施行日：2026年7月23日",
+  "legal.effectiveDate": "制定・施行日：2026年7月24日／最終更新日：2026年8月3日",
 };
 
 export const messages: Record<Locale, Record<string, string>> = { en, ja };
